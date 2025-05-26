@@ -1,3 +1,6 @@
+![image](https://github.com/user-attachments/assets/4e1e235f-4e6c-47e1-870a-7fd024c4a6be)
+
+
 # PEGASE - Penetration Engagement for Global Attack Simulation & Evasion
 
 <div align="center">
