@@ -1,6 +1,10 @@
 # PEGASE - Penetration Engagement for Global Attack Simulation & Evasion
 
-![Logo PEGASE](docs/images/logo_pegase.png)
+<div align="center">
+  <img src="docs/images/pentest-badge.svg" alt="Pentest Advanced">
+  <img src="docs/images/security-badge.svg" alt="Security Offensive">
+  <img src="docs/images/license-badge.svg" alt="AGPL v3 License">
+</div>
 
 ## Présentation
 
@@ -28,8 +32,6 @@ PEGASE incarne une nouvelle philosophie dans le domaine du pentest légal : l'ap
 ## Architecture
 
 L'architecture de PEGASE est conçue selon un modèle hybride combinant microservices et architecture hexagonale, permettant une modularité maximale tout en maintenant une cohérence globale.
-
-![Architecture PEGASE](docs/images/architecture_pegase.png)
 
 ### Composants Principaux
 
@@ -62,6 +64,14 @@ L'architecture de PEGASE est conçue selon un modèle hybride combinant microser
 Pour plus de détails sur l'architecture, consultez la [documentation d'architecture](docs/architecture/architecture_globale.md).
 
 ## Technologies
+
+<div align="center">
+  <img src="docs/images/python.svg" alt="Python" width="40" height="40">
+  <img src="docs/images/kubernetes.svg" alt="Kubernetes" width="40" height="40">
+  <img src="docs/images/docker.svg" alt="Docker" width="40" height="40">
+  <img src="docs/images/linux.svg" alt="Linux" width="40" height="40">
+  <img src="docs/images/github.svg" alt="GitHub" width="40" height="40">
+</div>
 
 PEGASE utilise un ensemble de technologies modernes et éprouvées :
 
@@ -98,6 +108,68 @@ PEGASE intègre des mécanismes robustes pour garantir que toutes les activités
 
 Pour plus d'informations sur le cadre éthique et légal, consultez la [documentation éthique](docs/ethique/ethique_legalite_transparence.md).
 
+## Feuille de Route d'Implémentation
+
+Pour transformer cette architecture en une plateforme pleinement fonctionnelle, les phases suivantes doivent être implémentées :
+
+### Phase 1 : Développement du Noyau Central (PEGASE Core)
+- **Orchestrateur Principal** : Développement en Go du système de coordination des workflows d'attaque
+- **Bus d'Information Sécurisé** : Implémentation du système de messagerie basé sur Kafka pour la communication entre modules
+- **Gestionnaire de Contraintes Légales** : Création du système de vérification en temps réel des actions
+- **Base de Données Centrale** : Configuration de PostgreSQL pour le stockage des données structurées
+
+### Phase 2 : Implémentation des Modules d'Attaque Prioritaires
+- **NetAssault** : Développement du module d'attaque réseau avec intégration de Nmap, Masscan, etc.
+- **WebBreacher** : Création du module d'attaque web avec intégration de OWASP ZAP, Nuclei, etc.
+- **SocialMatrix** : Implémentation du module d'ingénierie sociale avec génération de campagnes de phishing
+
+### Phase 3 : Développement des Modules de Support
+- **ReconSphere** : Création du module de reconnaissance OSINT
+- **VulnMatrix** : Développement du système d'analyse de vulnérabilités
+- **InsightPortal** : Implémentation du système de reporting et visualisation
+
+### Phase 4 : Création de l'Interface Utilisateur
+- **Frontend Web** : Développement de l'interface utilisateur en Vue.js
+- **API RESTful** : Implémentation des endpoints d'API pour la communication avec le frontend
+- **Tableau de Bord** : Création des visualisations interactives avec D3.js
+
+### Phase 5 : Intégration et Tests
+- **Tests d'Intégration** : Vérification de la communication entre tous les modules
+- **Tests de Performance** : Évaluation des performances sous charge
+- **Tests de Sécurité** : Audit de sécurité de la plateforme elle-même
+
+### Phase 6 : Déploiement et Documentation
+- **Scripts de Déploiement** : Création des configurations Kubernetes et Docker Compose
+- **Documentation Utilisateur** : Rédaction des guides d'utilisation détaillés
+- **Documentation Développeur** : Création de la documentation API et des guides de contribution
+
+## Modules à Implémenter en Priorité
+
+1. **PEGASE Core**
+   - Système de gestion des missions
+   - Orchestrateur de workflows
+   - Système de journalisation sécurisé
+
+2. **NetAssault**
+   - Scanner de ports et services
+   - Analyseur de vulnérabilités réseau
+   - Module de mouvement latéral
+
+3. **WebBreacher**
+   - Crawler intelligent
+   - Scanner de vulnérabilités web
+   - Module d'exploitation automatisée
+
+4. **SocialMatrix**
+   - Générateur de campagnes de phishing
+   - Analyseur de réseaux sociaux
+   - Système d'évaluation de sensibilisation
+
+5. **InsightPortal**
+   - Interface de visualisation des attaques
+   - Générateur de rapports
+   - Tableau de bord en temps réel
+
 ## Installation
 
 ### Prérequis
@@ -112,7 +184,7 @@ Pour plus d'informations sur le cadre éthique et légal, consultez la [document
 
 ```bash
 # Cloner le dépôt
-git clone https://github.com/votre-organisation/pegase.git
+git clone https://github.com/servais1983/projet-pegase.git
 cd pegase
 
 # Installation des dépendances
