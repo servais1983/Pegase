@@ -191,7 +191,7 @@ See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.
 ```bash
 pip install -e ".[dev]"
 ruff check pegase tests
-pytest                      # 44 unit tests (scope, audit, auth+refresh+revocation,
+pytest                      # 45 unit tests (scope, audit, auth+refresh+revocation,
                             #   orchestrator chaining, all modules, scenarios,
                             #   API routes + worker pipeline on in-memory SQLite)
 pytest -m integration       # needs Postgres + Redis on localhost
