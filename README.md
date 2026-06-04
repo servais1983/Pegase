@@ -29,7 +29,7 @@ hash-chained audit log, and a REST API + CLI.
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
 | Async work   | Celery workers backed by Redis.                                                                                    |
 | API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
-| CLI          | `pegase` (click + rich) - scan, modules, audit verify, user management.                                            |
+| CLI          | `pegase` (click + rich) - scan, scenarios, template, modules, audit verify, user management.                       |
 | Reporting    | JSON and stand-alone HTML reports per mission.                                                                     |
 | Observability| `/healthz`, `/readyz`, `/metrics` (Prometheus), structured JSON logs (`structlog`).                                 |
 | Deployment   | Multi-stage Dockerfile, non-root runtime, healthchecks; `docker compose up` brings up the full stack (postgres + redis + api + worker + nginx reverse proxy). Helm chart in `helm/pegase/` for Kubernetes. |
@@ -129,8 +129,12 @@ pegase scan \
             │  │  time window + CIDR/host   │  │
             │  └─────────────┬──────────────┘  │
             │                │                 │
-            │   recon  netassault  webbreacher │
-            │   vulnmatrix                     │
+            │  11 modules: recon · netassault  │
+            │  webbreacher · socialmatrix      │
+            │  cloudstrike · mobilehunter      │
+            │  wirelessphantom · physicalvector│
+            │  toolforge · vulnmatrix          │
+            │  postxploit (graph)              │
             └──────────────┬───────────────────┘
                            │
    ┌───────────────┐       │      ┌────────────────────┐
