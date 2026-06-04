@@ -111,9 +111,23 @@ def template_cmd(path: str) -> None:
     )
 
 
+@cli.command("scenarios")
+def scenarios_cmd() -> None:
+    """List built-in ThreatSim scenarios."""
+    from pegase.core.scenarios import list_builtin_scenarios
+
+    table = Table(title="ThreatSim scenarios")
+    table.add_column("Name")
+    table.add_column("Description")
+    for name, desc in list_builtin_scenarios().items():
+        table.add_row(name, desc)
+    console.print(table)
+
+
 @cli.command("scan")
 @click.option("--target", "targets", multiple=True, required=True, help="Target host/URL/CIDR")
 @click.option("--module", "modules", multiple=True, default=("recon",), help="Module(s) to run")
+@click.option("--scenario", default=None, help="ThreatSim scenario name or YAML path (overrides --module)")
 @click.option("--scope", "scope_patterns", multiple=True, help="In-scope pattern (default: targets)")
 @click.option("--authorization", required=True, help="Authorization token / RoE reference")
 @click.option("--allow-active", is_flag=True, default=False)
@@ -122,6 +136,7 @@ def template_cmd(path: str) -> None:
 def scan_cmd(
     targets: tuple[str, ...],
     modules: tuple[str, ...],
+    scenario: str | None,
     scope_patterns: tuple[str, ...],
     authorization: str,
     allow_active: bool,
@@ -130,6 +145,20 @@ def scan_cmd(
 ) -> None:
     """Run a one-off mission from the command line."""
     registry = available_modules()
+
+    parameters: dict = {}
+    if scenario:
+        from pegase.core.scenarios import load_scenario
+
+        scen = load_scenario(scenario)
+        errors = scen.validate()
+        if errors:
+            click.echo(f"scenario invalid: {errors}", err=True)
+            sys.exit(1)
+        modules = tuple(scen.all_modules())
+        parameters = scen.merged_parameters()
+        console.print(f"[cyan]scenario[/cyan] {scen.name}: modules={list(modules)}")
+
     unknown = set(modules) - set(registry.keys())
     if unknown:
         click.echo(f"unknown modules: {sorted(unknown)}", err=True)
@@ -154,7 +183,7 @@ def scan_cmd(
         actor="cli",
         scope=scope,
         targets=list(targets),
-        parameters={},
+        parameters=parameters,
     )
     orchestrator = Orchestrator(instances)
     outcome = asyncio.run(orchestrator.run(ctx))

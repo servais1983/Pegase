@@ -147,7 +147,26 @@ async def run_mission(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "mission requires an authorization token"
         )
-    unknown = set(payload.modules) - set(available_modules().keys())
+
+    modules = payload.modules
+    if payload.scenario:
+        from pegase.core.scenarios import load_scenario
+
+        try:
+            scen = load_scenario(payload.scenario)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        errors = scen.validate()
+        if errors:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "; ".join(errors))
+        modules = scen.all_modules()
+        # Merge scenario parameters into the mission parameters for this run.
+        merged = dict(mission.parameters or {})
+        for mod, mp in scen.merged_parameters().items():
+            merged.setdefault(mod, {}).update(mp)
+        mission.parameters = merged
+
+    unknown = set(modules) - set(available_modules().keys())
     if unknown:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, f"unknown modules: {sorted(unknown)}"
@@ -158,7 +177,7 @@ async def run_mission(
 
     from pegase.tasks.scans import run_mission_task  # local import to avoid cycle
 
-    task = run_mission_task.delay(mission_id, payload.modules, user.username)
+    task = run_mission_task.delay(mission_id, modules, user.username)
     get_audit_log().append(
         action="mission.queued",
         actor=user.username,

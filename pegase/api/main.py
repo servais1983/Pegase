@@ -118,6 +118,10 @@ def create_app() -> FastAPI:
                 {"missions": missions_rows, "version": "0.1.0"},
             )
 
+        @app.get("/graph", response_class=HTMLResponse, include_in_schema=False)
+        async def graph_page(request: Request):
+            return templates.TemplateResponse(request, "graph.html", {})
+
     return app
 
 

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PEGASE - Attack Graph</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    #graph { width: 100%; height: 70vh; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; }
+    .node circle { stroke: #0d1117; stroke-width: 2px; cursor: pointer; }
+    .node text { fill: #e6edf3; font-size: 11px; }
+    .link { stroke: #4b5563; stroke-opacity: 0.7; }
+    .controls { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+    .controls input { flex:1; min-width:220px; background:#0d1117; color:#e6edf3;
+      border:1px solid #30363d; border-radius:6px; padding:8px 10px; }
+    .controls button { background:#58a6ff; color:#000; border:0; padding:8px 16px;
+      border-radius:6px; font-weight:600; cursor:pointer; }
+    .legend span { margin-right:14px; font-size:12px; }
+    .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PEGASE</h1>
+    <span class="pill">Attack-path graph (PostXploit)</span>
+  </header>
+  <main>
+    <section>
+      <div class="controls">
+        <input id="mission" placeholder="mission id">
+        <input id="token" placeholder="JWT (from dashboard login)">
+        <button id="load">Load graph</button>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:#c0392b"></i>critical</span>
+        <span><i class="dot" style="background:#e67e22"></i>high</span>
+        <span><i class="dot" style="background:#f1c40f"></i>medium</span>
+        <span><i class="dot" style="background:#2ecc71"></i>low</span>
+        <span><i class="dot" style="background:#5d6d7e"></i>info</span>
+      </div>
+      <svg id="graph"></svg>
+      <p id="status" style="color:#8b949e"></p>
+    </section>
+  </main>
+  <script src="/static/graph.js"></script>
+</body>
+</html>

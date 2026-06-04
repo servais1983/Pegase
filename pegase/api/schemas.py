@@ -100,6 +100,10 @@ class FindingOut(BaseModel):
 
 class MissionRunRequest(BaseModel):
     modules: list[str] = Field(default_factory=lambda: ["recon", "webbreacher"])
+    scenario: str | None = Field(
+        default=None,
+        description="ThreatSim scenario name; when set, overrides `modules`.",
+    )
 
 
 class MissionRunResponse(BaseModel):

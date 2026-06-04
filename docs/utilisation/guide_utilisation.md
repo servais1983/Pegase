@@ -125,6 +125,57 @@ operator using the generated `campaign.json` manifest. Click-throughs are
 captured by the public `POST/GET /track/{token}` endpoint, which stores only
 the opaque token, a hashed source IP and the user-agent - no recipient PII.
 
+## Second-wave modules
+
+| module           | type    | key parameters                                  |
+|------------------|---------|-------------------------------------------------|
+| `cloudstrike`    | active  | `region`, `aws_profile` (read-only role; needs `pip install .[cloud]`) |
+| `mobilehunter`   | passive | `apk_path` (local APK file)                      |
+| `wirelessphantom`| passive | `csv_path` (airodump-ng CSV)                     |
+| `physicalvector` | passive | `site`, `controls`, `observations`              |
+| `toolforge`      | active  | `tool` (allowlisted), `extra_tools`, `timeout`  |
+| `postxploit`     | passive | runs after producers; emits the attack graph    |
+
+CloudStrike targets are `aws:<account-id>` and must be in scope; the module
+resolves the account from the supplied credentials and refuses to run against an
+unauthorized account. ToolForge only runs binaries on its allowlist
+(`nuclei`, `nikto`, `whatweb`, `testssl`, `dig`, `host`) - never a free-form
+command - and invokes them with `shell=False`.
+
+## ThreatSim scenarios
+
+A scenario chains modules across named stages. List the built-ins:
+
+```bash
+pegase scenarios
+```
+
+Run one (CLI):
+
+```bash
+pegase scan --target app.customer.example \
+  --scenario external-apt \
+  --authorization RoE-001 --allow-active
+```
+
+Or via the API by passing `scenario` to the run endpoint:
+
+```bash
+curl -X POST .../api/v1/missions/$MID/run \
+  -H "$H" -H 'content-type: application/json' \
+  -d '{"scenario": "recon-and-enumerate"}'
+```
+
+Custom scenarios are plain YAML (`stages: [{name, modules, parameters}]`)
+passed by path to `--scenario`.
+
+## Attack-graph visualization
+
+After a mission that includes `postxploit`, open `http://<host>/graph`, paste
+your JWT (from the dashboard login) and the mission id. The page renders the
+asset/pivot graph with D3, colour-coded by max severity. The raw graph is also
+available at `GET /api/v1/reports/{mission_id}/graph.json`.
+
 ## Audit log shipping (compliance)
 
 For long-term, tamper-evident retention, ship rotated audit segments to S3

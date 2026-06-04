@@ -23,7 +23,8 @@ hash-chained audit log, and a REST API + CLI.
 | Layer        | Implementation                                                                                                    |
 |--------------|-------------------------------------------------------------------------------------------------------------------|
 | Core         | Mission orchestrator, async runtime, JWT auth, hash-chained audit log, RoE / scope guard.                          |
-| Modules      | `recon` (DNS + WHOIS + CT-logs), `netassault` (nmap), `webbreacher` (HTTP surface), `socialmatrix` (phishing-sim kit + consent ledger), `vulnmatrix` (correlation + opt-in NVD). |
+| Modules      | 11 modules: `recon`, `netassault`, `webbreacher`, `socialmatrix`, `cloudstrike`, `mobilehunter`, `wirelessphantom`, `physicalvector`, `toolforge`, `vulnmatrix`, `postxploit`. |
+| Scenarios    | ThreatSim engine: named multi-stage kill-chains (`recon-and-enumerate`, `external-apt`, `cloud-review`) + custom YAML. |
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
 | Async work   | Celery workers backed by Redis.                                                                                    |
 | API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
@@ -152,7 +153,13 @@ Detailed design notes live in [`docs/architecture/architecture_globale.md`](docs
 | `netassault`  | active   | Wraps `nmap` via `python-nmap`. Default profile: `-sT -sV -Pn -T3 1-1024`. Tunable via mission parameters. |
 | `webbreacher` | active   | HTTP fingerprinting, OWASP-secure-headers audit, probes for a short list of common sensitive paths (`.env`, `.git/config`, `server-status`, ...). |
 | `socialmatrix`| passive  | Phishing-simulation kit generator: per-recipient landing page + tracking token + consent-ledger entry in the audit log. **Does not send mail** - delivery is operator-controlled and out-of-band. Click events captured by the public `/track/{token}` endpoint. |
-| `vulnmatrix`  | passive  | Correlates banners/fingerprints from upstream findings against a curated list of known-vulnerable versions; optional NVD CVE lookup when an API key is supplied. Runs **after** other modules thanks to the orchestrator's `needs_upstream_findings` dependency hint. |
+| `cloudstrike` | active   | Read-only AWS posture assessment via boto3: public S3 buckets, weak IAM password policy, users without MFA, stale access keys, security groups exposing sensitive ports to `0.0.0.0/0`. Use an `SecurityAudit` read-only role. |
+| `mobilehunter`| passive  | Static Android APK analysis (built-in binary-manifest parser, no external deps): dangerous permissions, exported components without guards, debuggable/allowBackup/cleartext flags, embedded-secret heuristics. |
+| `wirelessphantom`| passive | Analyzes airodump-ng CSV surveys: open/WEP/WPA1 networks, hidden SSIDs, clients probing for known networks (evil-twin exposure). Radio capture stays operator-side. |
+| `physicalvector`| passive | Generates a structured physical-security assessment checklist (perimeter, badge access, server room, USB drop, ...) with operator-fillable observed/exploited status. |
+| `toolforge`   | active   | Runs **allowlisted** third-party CLI tools (nuclei, nikto, whatweb, testssl, ...) with `{target}` substitution and `shell=False` - no command-injection surface. Every target is scope-checked. |
+| `vulnmatrix`  | passive  | Correlates banners/fingerprints from upstream findings against a curated list of known-vulnerable versions; optional NVD CVE lookup. Runs **after** producers (`needs_upstream_findings`). |
+| `postxploit`  | passive  | Consumer module that synthesises all findings into an attack-path graph (assets + pivot edges), rendered with D3 at `/graph` and served by `/api/v1/reports/{id}/graph.json`. |
 
 Modules conform to a single ABC (`pegase.modules.base.Module`) so adding a new
 one is a single file + an entry in `available_modules()`.
@@ -193,19 +200,27 @@ CI runs the same matrix on every push (see [.github/workflows/ci.yml](.github/wo
 
 ## Roadmap
 
-The v0.1.0 foundation is wired end-to-end and production-deployable. The
-following are the next concrete chunks of work — they extend, but do not
-break, the public API/CLI:
+The v0.1.0 platform now implements all the modules from the original concept
+plus the attack-graph view. Delivered:
 
-* **SocialMatrix** — phishing campaign simulator with consent ledger.
-* **CloudStrike** — IAM posture checks (AWS/GCP/Azure) via read-only roles.
-* **MobileHunter** / **WirelessPhantom** — pluggable adapters once we have a
-  ToolForge wrapper.
-* **PostXploit** — gated, explicit-consent post-exploit graph builder.
-* **Web UI** — replace the minimal Jinja dashboard with the planned Vue.js +
-  D3.js attack-graph view.
+* ✅ SocialMatrix — phishing simulator with consent ledger.
+* ✅ CloudStrike — read-only AWS posture checks.
+* ✅ MobileHunter — static APK analysis.
+* ✅ WirelessPhantom — airodump survey analysis.
+* ✅ PhysicalVector — physical-security assessment scaffolding.
+* ✅ ToolForge — allowlisted third-party tool integration.
+* ✅ PostXploit — attack-path graph builder + D3 visualization.
+* ✅ ThreatSim — multi-stage scenario engine.
+
+Still on the horizon:
+
+* **GCP / Azure** posture providers for CloudStrike (AWS is implemented today).
+* **Richer Web UI** — a full SPA build (the current dashboard + D3 graph are
+  dependency-free server-rendered pages).
 * **Distributed mode** — Temporal.io workflow engine + multi-tenant
   segregation, replacing the single-Celery deployment for large engagements.
+* **boto3 / androguard** are optional extras; install them to enable
+  CloudStrike and the richer APK parse respectively.
 
 ---
 
