@@ -1,0 +1,89 @@
+name: pegase
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pegase
+      POSTGRES_PASSWORD: ${PEGASE_DB_PASSWORD:-pegase}
+      POSTGRES_DB: pegase
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "pegase"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  migrate:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PEGASE_DATABASE_SYNC_URL: postgresql+psycopg2://pegase:${PEGASE_DB_PASSWORD:-pegase}@postgres:5432/pegase
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PEGASE_ENVIRONMENT: ${PEGASE_ENVIRONMENT:-production}
+      PEGASE_SECRET_KEY: ${PEGASE_SECRET_KEY:?must be set}
+      PEGASE_DATABASE_URL: postgresql+asyncpg://pegase:${PEGASE_DB_PASSWORD:-pegase}@postgres:5432/pegase
+      PEGASE_DATABASE_SYNC_URL: postgresql+psycopg2://pegase:${PEGASE_DB_PASSWORD:-pegase}@postgres:5432/pegase
+      PEGASE_REDIS_URL: redis://redis:6379/0
+      PEGASE_CELERY_BROKER_URL: redis://redis:6379/1
+      PEGASE_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - audit_data:/var/lib/pegase
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PEGASE_ENVIRONMENT: ${PEGASE_ENVIRONMENT:-production}
+      PEGASE_SECRET_KEY: ${PEGASE_SECRET_KEY:?must be set}
+      PEGASE_DATABASE_URL: postgresql+asyncpg://pegase:${PEGASE_DB_PASSWORD:-pegase}@postgres:5432/pegase
+      PEGASE_DATABASE_SYNC_URL: postgresql+psycopg2://pegase:${PEGASE_DB_PASSWORD:-pegase}@postgres:5432/pegase
+      PEGASE_REDIS_URL: redis://redis:6379/0
+      PEGASE_CELERY_BROKER_URL: redis://redis:6379/1
+      PEGASE_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - audit_data:/var/lib/pegase
+    command: ["celery", "-A", "pegase.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=4"]
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  audit_data:

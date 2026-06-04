@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PEGASE - Dashboard</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <h1>PEGASE</h1>
+    <span class="version">v{{ version }}</span>
+    <span class="pill">Penetration Engagement for Global Attack Simulation &amp; Evasion</span>
+  </header>
+
+  <main>
+    <section class="auth-card">
+      <h2>Authenticate</h2>
+      <form id="login-form">
+        <input name="username" placeholder="username" required>
+        <input name="password" type="password" placeholder="password" required>
+        <button type="submit">Sign in</button>
+      </form>
+      <p id="auth-status"></p>
+    </section>
+
+    <section>
+      <h2>Recent missions ({{ missions|length }})</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Client</th>
+            <th>Status</th>
+            <th>Targets</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for m in missions %}
+          <tr>
+            <td><code>{{ m.name }}</code></td>
+            <td>{{ m.client or "-" }}</td>
+            <td><span class="badge badge-{{ m.status.value if m.status.value is defined else m.status }}">
+              {{ m.status.value if m.status.value is defined else m.status }}
+            </span></td>
+            <td>{{ m.targets|length }}</td>
+            <td>{{ m.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+            <td>
+              <a href="/api/v1/reports/{{ m.id }}.html" target="_blank">HTML</a>
+              &middot;
+              <a href="/api/v1/reports/{{ m.id }}.json" target="_blank">JSON</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6">No missions yet. Create one via the API or the CLI.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>API quick links</h2>
+      <ul>
+        <li><a href="/docs">OpenAPI / Swagger</a></li>
+        <li><a href="/redoc">Redoc</a></li>
+        <li><a href="/modules">/modules</a></li>
+        <li><a href="/healthz">/healthz</a></li>
+        <li><a href="/metrics">/metrics</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

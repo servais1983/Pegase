@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pegase"
+version = "0.1.0"
+description = "PEGASE - Penetration Engagement for Global Attack Simulation & Evasion"
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+requires-python = ">=3.11"
+authors = [{ name = "PEGASE contributors" }]
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.32.1",
+    "pydantic==2.10.3",
+    "pydantic-settings==2.7.0",
+    "sqlalchemy[asyncio]==2.0.36",
+    "asyncpg==0.30.0",
+    "alembic==1.14.0",
+    "psycopg2-binary==2.9.10",
+    "celery==5.4.0",
+    "redis==5.2.1",
+    "httpx==0.28.1",
+    "dnspython==2.7.0",
+    "python-whois==0.9.5",
+    "python-nmap==0.7.1",
+    "cryptography==44.0.0",
+    "bcrypt==4.2.1",
+    "python-jose[cryptography]==3.3.0",
+    "python-multipart==0.0.19",
+    "jinja2==3.1.4",
+    "pyyaml==6.0.2",
+    "click==8.1.8",
+    "rich==13.9.4",
+    "structlog==24.4.0",
+    "prometheus-client==0.21.1",
+    "tenacity==9.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.0",
+    "pytest-cov==6.0.0",
+    "httpx==0.28.1",
+    "ruff==0.8.4",
+    "mypy==1.13.0",
+    "types-pyyaml==6.0.12.20240917",
+]
+
+[project.scripts]
+pegase = "pegase.cli:cli"
+pegase-api = "pegase.api.main:run"
+
+[tool.setuptools.packages.find]
+include = ["pegase*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "S"]
+ignore = ["S101", "S104", "S603", "S607", "E501", "B008", "SIM117"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S107", "S311"]
+"alembic/**" = ["E402"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: integration tests requiring services",
+    "slow: slow tests",
+]

@@ -1,245 +1,214 @@
-![image](pgase.png)
+![PEGASE](pgase.png)
 
-
-# PEGASE - Penetration Engagement for Global Attack Simulation & Evasion
-
-<div align="center">
-  <img src="docs/images/pentest-badge.svg" alt="Pentest Advanced">
-  <img src="docs/images/security-badge.svg" alt="Security Offensive">
-  <img src="docs/images/license-badge.svg" alt="AGPL v3 License">
-</div>
-
-## Présentation
-
-PEGASE (Penetration Engagement for Global Attack Simulation & Evasion) est une plateforme de test d'intrusion de nouvelle génération, conçue pour simuler des attaques multi-vecteurs coordonnées dans un cadre légal et éthique. Contrairement aux solutions traditionnelles qui se concentrent sur un seul vecteur à la fois, PEGASE adopte une approche holistique permettant d'évaluer la posture de sécurité globale d'une organisation.
-
-## Caractéristiques Principales
-
-- **Orchestration Multi-Vecteurs** : Coordination d'attaques simultanées sur différents vecteurs (réseau, web, social, physique, cloud, mobile, etc.)
-- **Intelligence Adaptative** : Algorithmes d'IA capables d'ajuster dynamiquement les stratégies d'attaque en fonction des défenses rencontrées
-- **Modularité Avancée** : Architecture extensible permettant l'ajout facile de nouveaux modules et l'intégration d'outils existants
-- **Simulation Réaliste** : Reproduction fidèle des techniques utilisées par les attaquants réels, incluant les mouvements latéraux et l'élévation de privilèges
-- **Reporting Interactif** : Interface web permettant de suivre les attaques en temps réel et de visualiser les chemins d'attaque complexes
-- **Cadre Éthique et Légal** : Mécanismes intégrés pour garantir le respect des limites légales et éthiques du pentest
-
-## Vision
-
-PEGASE incarne une nouvelle philosophie dans le domaine du pentest légal : l'approche "Omnidirectionnelle Adaptative". Cette vision repose sur trois principes fondamentaux :
-
-1. **Simultanéité multi-vecteurs** : Les attaques réelles ne se limitent jamais à un seul vecteur. PEGASE simule des attaques coordonnées sur l'ensemble des surfaces d'exposition d'une organisation.
-
-2. **Intelligence adaptative** : Les attaquants modernes adaptent constamment leurs techniques en fonction des défenses rencontrées. PEGASE intègre des algorithmes d'IA capables d'ajuster dynamiquement les stratégies d'attaque en fonction des résultats obtenus.
-
-3. **Transparence et contrôle** : Malgré sa puissance, PEGASE reste un outil de pentest légal avec des garde-fous intégrés, une traçabilité totale et des mécanismes de contrôle permettant d'éviter tout dommage non intentionnel.
-
-## Architecture
-
-L'architecture de PEGASE est conçue selon un modèle hybride combinant microservices et architecture hexagonale, permettant une modularité maximale tout en maintenant une cohérence globale.
-
-### Composants Principaux
-
-- **PEGASE Core** : Noyau central responsable de l'orchestration globale
-  - Orchestrateur Principal
-  - Bus d'Information Sécurisé
-  - Moteur d'IA Stratégique
-  - Gestionnaire de Contraintes Légales
-
-- **Modules d'Attaque Spécialisés**
-  - NetAssault (Réseau)
-  - WebBreacher (Web)
-  - SocialMatrix (Ingénierie Sociale)
-  - PhysicalVector (Sécurité Physique)
-  - CloudStrike (Cloud)
-  - MobileHunter (Mobile)
-  - WirelessPhantom (Sans-fil)
-
-- **Modules de Support et d'Analyse**
-  - ReconSphere (Reconnaissance)
-  - VulnMatrix (Analyse de Vulnérabilités)
-  - PostXploit (Post-Exploitation)
-  - InsightPortal (Reporting)
-
-- **Modules d'Intégration et d'Extension**
-  - ToolForge (Intégration d'Outils Tiers)
-  - AutoPilot (API et Automatisation)
-  - ThreatSim (Simulation Avancée)
-
-Pour plus de détails sur l'architecture, consultez la [documentation d'architecture](docs/architecture/architecture_globale.md).
-
-## Technologies
+# PEGASE — Penetration Engagement for Global Attack Simulation & Evasion
 
 <div align="center">
-  <img src="docs/images/python.svg" alt="Python" width="40" height="40">
-  <img src="docs/images/kubernetes.svg" alt="Kubernetes" width="40" height="40">
-  <img src="docs/images/docker.svg" alt="Docker" width="40" height="40">
-  <img src="docs/images/linux.svg" alt="Linux" width="40" height="40">
-  <img src="docs/images/github.svg" alt="GitHub" width="40" height="40">
+  <img src="docs/images/pentest-badge.svg" alt="Pentest">
+  <img src="docs/images/security-badge.svg" alt="Security">
+  <img src="docs/images/license-badge.svg" alt="AGPL v3">
 </div>
 
-PEGASE utilise un ensemble de technologies modernes et éprouvées :
+PEGASE is a **multi-vector legal pentest orchestration platform**. It
+coordinates passive, active and (opt-in) exploit modules against a clearly
+scoped engagement, with built-in Rules-of-Engagement enforcement, an immutable
+hash-chained audit log, and a REST API + CLI.
 
-- **Langages principaux** : Go, Python, Rust
-- **Orchestration** : Temporal.io, Kubernetes
-- **Intelligence Artificielle** : PyTorch, TensorFlow, Ray RLlib
-- **Communication** : Apache Kafka, gRPC
-- **Stockage** : PostgreSQL, MongoDB, Neo4j
-- **Frontend** : Vue.js, D3.js
-- **Sécurité** : Vault, PKI interne, chiffrement de bout en bout
-
-Pour plus de détails sur les technologies utilisées, consultez la [documentation technique](docs/technique/technologies.md).
-
-## Scénarios d'Utilisation
-
-PEGASE peut être utilisé dans divers contextes pour évaluer la sécurité globale d'une organisation :
-
-- **Compromission d'Entreprise via Approche Hybride** : Combinaison de phishing, exploitation web et accès physique
-- **Compromission d'Infrastructure Cloud Critique** : Évaluation de la sécurité des environnements multi-cloud
-- **Attaque Ciblée contre une Infrastructure Critique** : Test de la sécurité des systèmes industriels
-- **Évaluation de Sécurité Mobile et IoT** : Analyse de l'écosystème mobile et IoT complet
-- **Attaque Coordonnée contre une Organisation Internationale** : Simulation d'APT ciblant plusieurs sites
-
-Pour des exemples détaillés de scénarios, consultez la [documentation des scénarios](docs/scenarios/scenarios_attaque.md).
-
-## Éthique et Légalité
-
-PEGASE intègre des mécanismes robustes pour garantir que toutes les activités respectent un cadre éthique et légal strict :
-
-- **Gestionnaire de Contraintes Légales** : Vérification en temps réel de la conformité des actions
-- **Journalisation Immuable** : Traçabilité complète de toutes les actions effectuées
-- **Supervision Humaine** : Points de validation obligatoires pour les actions critiques
-- **Protection des Données** : Chiffrement et minimisation des données collectées
-
-Pour plus d'informations sur le cadre éthique et légal, consultez la [documentation éthique](docs/ethique/ethique_legalite_transparence.md).
-
-## Feuille de Route d'Implémentation
-
-Pour transformer cette architecture en une plateforme pleinement fonctionnelle, les phases suivantes doivent être implémentées :
-
-### Phase 1 : Développement du Noyau Central (PEGASE Core)
-- **Orchestrateur Principal** : Développement en Go du système de coordination des workflows d'attaque
-- **Bus d'Information Sécurisé** : Implémentation du système de messagerie basé sur Kafka pour la communication entre modules
-- **Gestionnaire de Contraintes Légales** : Création du système de vérification en temps réel des actions
-- **Base de Données Centrale** : Configuration de PostgreSQL pour le stockage des données structurées
-
-### Phase 2 : Implémentation des Modules d'Attaque Prioritaires
-- **NetAssault** : Développement du module d'attaque réseau avec intégration de Nmap, Masscan, etc.
-- **WebBreacher** : Création du module d'attaque web avec intégration de OWASP ZAP, Nuclei, etc.
-- **SocialMatrix** : Implémentation du module d'ingénierie sociale avec génération de campagnes de phishing
-
-### Phase 3 : Développement des Modules de Support
-- **ReconSphere** : Création du module de reconnaissance OSINT
-- **VulnMatrix** : Développement du système d'analyse de vulnérabilités
-- **InsightPortal** : Implémentation du système de reporting et visualisation
-
-### Phase 4 : Création de l'Interface Utilisateur
-- **Frontend Web** : Développement de l'interface utilisateur en Vue.js
-- **API RESTful** : Implémentation des endpoints d'API pour la communication avec le frontend
-- **Tableau de Bord** : Création des visualisations interactives avec D3.js
-
-### Phase 5 : Intégration et Tests
-- **Tests d'Intégration** : Vérification de la communication entre tous les modules
-- **Tests de Performance** : Évaluation des performances sous charge
-- **Tests de Sécurité** : Audit de sécurité de la plateforme elle-même
-
-### Phase 6 : Déploiement et Documentation
-- **Scripts de Déploiement** : Création des configurations Kubernetes et Docker Compose
-- **Documentation Utilisateur** : Rédaction des guides d'utilisation détaillés
-- **Documentation Développeur** : Création de la documentation API et des guides de contribution
-
-## Modules à Implémenter en Priorité
-
-1. **PEGASE Core**
-   - Système de gestion des missions
-   - Orchestrateur de workflows
-   - Système de journalisation sécurisé
-
-2. **NetAssault**
-   - Scanner de ports et services
-   - Analyseur de vulnérabilités réseau
-   - Module de mouvement latéral
-
-3. **WebBreacher**
-   - Crawler intelligent
-   - Scanner de vulnérabilités web
-   - Module d'exploitation automatisée
-
-4. **SocialMatrix**
-   - Générateur de campagnes de phishing
-   - Analyseur de réseaux sociaux
-   - Système d'évaluation de sensibilisation
-
-5. **InsightPortal**
-   - Interface de visualisation des attaques
-   - Générateur de rapports
-   - Tableau de bord en temps réel
-
-## Installation
-
-### Prérequis
-
-- Kubernetes 1.22+
-- Docker 20.10+
-- Go 1.18+
-- Python 3.9+
-- PostgreSQL 14+
-
-### Installation rapide
-
-```bash
-# Cloner le dépôt
-git clone https://github.com/servais1983/projet-pegase.git
-cd pegase
-
-# Installation des dépendances
-make install-deps
-
-# Configuration
-cp config/config.example.yaml config/config.yaml
-# Éditer config/config.yaml selon vos besoins
-
-# Déploiement
-make deploy
-```
-
-Pour des instructions d'installation détaillées, consultez le [guide d'installation](docs/installation/installation.md).
-
-## Utilisation
-
-### Démarrage rapide
-
-```bash
-# Lancer l'interface web
-pegase-cli start --web
-
-# Créer une nouvelle mission
-pegase-cli mission create --name "Test-Entreprise-X" --config missions/templates/standard.yaml
-
-# Exécuter la mission
-pegase-cli mission run --id <mission-id>
-```
-
-Pour un guide d'utilisation complet, consultez la [documentation utilisateur](docs/utilisation/guide_utilisation.md).
-
-## Contribution
-
-Nous accueillons favorablement les contributions à PEGASE ! Voici comment vous pouvez participer :
-
-1. Forker le projet
-2. Créer une branche pour votre fonctionnalité (`git checkout -b feature/amazing-feature`)
-3. Committer vos changements (`git commit -m 'Add some amazing feature'`)
-4. Pousser vers la branche (`git push origin feature/amazing-feature`)
-5. Ouvrir une Pull Request
-
-Pour plus d'informations, consultez le [guide de contribution](CONTRIBUTING.md).
-
-## Licence
-
-Ce projet est distribué sous licence [GNU Affero General Public License v3.0](LICENSE). Voir le fichier LICENSE pour plus de détails.
-
-## Contact
-
-Pour toute question ou suggestion concernant PEGASE, n'hésitez pas à ouvrir une issue sur ce dépôt ou à contacter l'équipe de développement à l'adresse suivante : contact@pegase-pentest.org
+> No demo mode. Every module talks to real targets. Every action is
+> authorization-gated and audit-logged.
 
 ---
 
-**Note importante** : PEGASE est un outil de test d'intrusion légal et doit être utilisé uniquement dans le cadre de missions autorisées. L'utilisation de cet outil pour des activités non autorisées est illégale et contraire à l'éthique.
+## What is in the box (v0.1.0)
+
+| Layer        | Implementation                                                                                                    |
+|--------------|-------------------------------------------------------------------------------------------------------------------|
+| Core         | Mission orchestrator, async runtime, JWT auth, hash-chained audit log, RoE / scope guard.                          |
+| Modules      | `recon` (DNS + WHOIS + CT-logs), `netassault` (nmap), `webbreacher` (HTTP surface), `vulnmatrix` (correlation + opt-in NVD). |
+| Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
+| Async work   | Celery workers backed by Redis.                                                                                    |
+| API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
+| CLI          | `pegase` (click + rich) - scan, modules, audit verify, user management.                                            |
+| Reporting    | JSON and stand-alone HTML reports per mission.                                                                     |
+| Observability| `/healthz`, `/readyz`, `/metrics` (Prometheus), structured JSON logs (`structlog`).                                 |
+| Deployment   | Multi-stage Dockerfile, non-root runtime, healthchecks; `docker compose up` brings up the full stack.              |
+| CI           | GitHub Actions: ruff, pytest + coverage against real Postgres/Redis, Docker build, CodeQL.                          |
+
+---
+
+## Quick start
+
+```bash
+git clone https://github.com/servais1983/Pegase.git
+cd Pegase
+cp .env.example .env
+python -c 'import secrets;print("PEGASE_SECRET_KEY="+secrets.token_urlsafe(64))' >> .env
+
+docker compose up -d --build
+
+# Create the first admin user
+docker compose exec api python -m scripts.bootstrap_admin \
+  PEGASE_ADMIN_USERNAME=admin \
+  PEGASE_ADMIN_EMAIL=admin@example.org \
+  PEGASE_ADMIN_PASSWORD='ChangeMeNow!'
+
+# Open http://localhost:8000  -> dashboard
+# Open http://localhost:8000/docs -> OpenAPI
+```
+
+Local development without Docker is covered in [docs/installation/installation.md](docs/installation/installation.md).
+
+---
+
+## Run a real mission
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/token \
+  -d 'username=admin&password=ChangeMeNow!' | jq -r .access_token)
+
+# 1) declare the engagement (scope + authorization token)
+MISSION=$(curl -s -X POST http://localhost:8000/api/v1/missions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{
+    "name": "scanme-test",
+    "client": "Nmap.org public lab",
+    "targets": ["scanme.nmap.org"],
+    "scope_rules": [{"pattern": "scanme.nmap.org"}],
+    "allowed_actions": ["passive", "active"],
+    "authorization_token": "ROE-public-scanme.nmap.org"
+  }' | jq -r .id)
+
+# 2) launch
+curl -X POST http://localhost:8000/api/v1/missions/$MISSION/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"modules": ["recon", "netassault", "webbreacher", "vulnmatrix"]}'
+
+# 3) read the report
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/reports/$MISSION.html > report.html
+```
+
+Same thing from the CLI (no API needed):
+
+```bash
+pegase scan \
+  --target scanme.nmap.org \
+  --module recon --module webbreacher \
+  --authorization "ROE-public-scanme.nmap.org" \
+  --allow-active \
+  --output report.json
+```
+
+---
+
+## Architecture
+
+```
+            ┌──────────────────────────────────┐
+            │           FastAPI API            │
+            │  /api/v1/{auth,missions,...}     │
+            │  /docs   /metrics  /healthz      │
+            └──────────────┬───────────────────┘
+                           │
+                  enqueues │ Celery task
+                           ▼
+            ┌──────────────────────────────────┐
+            │          Celery worker           │
+            │  ┌────────────────────────────┐  │
+            │  │       Orchestrator         │  │
+            │  │   (asyncio + semaphore)    │  │
+            │  └─────────────┬──────────────┘  │
+            │                │                 │
+            │  ┌─────────────▼──────────────┐  │
+            │  │        ScopeGuard          │  │
+            │  │  RoE + authorization +     │  │
+            │  │  time window + CIDR/host   │  │
+            │  └─────────────┬──────────────┘  │
+            │                │                 │
+            │   recon  netassault  webbreacher │
+            │   vulnmatrix                     │
+            └──────────────┬───────────────────┘
+                           │
+   ┌───────────────┐       │      ┌────────────────────┐
+   │   PostgreSQL  │◀──────┼─────▶│  Audit log (hash   │
+   │ missions +    │       │      │  chain, append-only)│
+   │ findings +    │       │      └────────────────────┘
+   │ users         │       │
+   └───────────────┘       ▼
+                    Redis (broker + result)
+```
+
+Detailed design notes live in [`docs/architecture/architecture_globale.md`](docs/architecture/architecture_globale.md).
+
+---
+
+## Modules
+
+| name          | type     | what it actually does                                                                |
+|---------------|----------|--------------------------------------------------------------------------------------|
+| `recon`       | passive  | A/AAAA/MX/NS/TXT/CNAME/SOA via `dnspython`, WHOIS via `python-whois`, subdomain harvesting from <https://crt.sh>. |
+| `netassault`  | active   | Wraps `nmap` via `python-nmap`. Default profile: `-sT -sV -Pn -T3 1-1024`. Tunable via mission parameters. |
+| `webbreacher` | active   | HTTP fingerprinting, OWASP-secure-headers audit, probes for a short list of common sensitive paths (`.env`, `.git/config`, `server-status`, ...). |
+| `vulnmatrix`  | passive  | Correlates banners/fingerprints from upstream findings against a curated list of known-vulnerable versions; optional NVD CVE lookup when an API key is supplied. |
+
+Modules conform to a single ABC (`pegase.modules.base.Module`) so adding a new
+one is a single file + an entry in `available_modules()`.
+
+---
+
+## Safety model
+
+* `PEGASE_REQUIRE_AUTHORIZATION_TOKEN=true` (default) — no mission can leave
+  `draft` state without an authorization token, and the worker rejects runs
+  that lose the token at the last second.
+* `ScopeGuard` re-validates **every** target/action pair against the mission's
+  rules at call time. Out-of-scope hits raise `ScopeViolation`, are logged to
+  the audit chain and surfaced as `403 scope_violation` over the API.
+* Audit log (`/var/lib/pegase/audit.log`) is append-only and hash-chained.
+  `pegase audit` verifies the chain end-to-end.
+* The container runs as a non-root user; the default compose binds Postgres
+  and Redis to `127.0.0.1` only.
+* Reporting and findings retain raw evidence — operators decide what to share
+  with the client.
+
+See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.
+
+---
+
+## Testing
+
+```bash
+pip install -e ".[dev]"
+ruff check pegase tests
+pytest                      # unit tests
+pytest -m integration       # needs Postgres + Redis on localhost
+```
+
+CI runs the same matrix on every push (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
+
+---
+
+## Roadmap
+
+The v0.1.0 foundation is wired end-to-end and production-deployable. The
+following are the next concrete chunks of work — they extend, but do not
+break, the public API/CLI:
+
+* **SocialMatrix** — phishing campaign simulator with consent ledger.
+* **CloudStrike** — IAM posture checks (AWS/GCP/Azure) via read-only roles.
+* **MobileHunter** / **WirelessPhantom** — pluggable adapters once we have a
+  ToolForge wrapper.
+* **PostXploit** — gated, explicit-consent post-exploit graph builder.
+* **Web UI** — replace the minimal Jinja dashboard with the planned Vue.js +
+  D3.js attack-graph view.
+* **Distributed mode** — Temporal.io workflow engine + multi-tenant
+  segregation, replacing the single-Celery deployment for large engagements.
+
+---
+
+## License
+
+[AGPL-3.0-or-later](LICENSE). PEGASE is a legal pentest tool. Using it against
+systems you do not own or are not explicitly authorized to test is illegal and
+unethical.
