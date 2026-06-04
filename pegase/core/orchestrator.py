@@ -21,6 +21,18 @@ from pegase.modules.base import Finding, Module, ModuleResult
 log = get_logger(__name__)
 
 
+def _finding_to_dict(f: Finding) -> dict[str, Any]:
+    return {
+        "module": f.module,
+        "target": f.target,
+        "title": f.title,
+        "description": f.description,
+        "severity": f.severity,
+        "evidence": f.evidence,
+        "references": f.references,
+    }
+
+
 @dataclass
 class MissionContext:
     mission_id: str
@@ -65,27 +77,44 @@ class Orchestrator:
             mission=ctx.mission_id,
             meta={"targets": ctx.targets, "modules": [m.name for m in self._modules]},
         )
-        tasks = [self._run_module(m, ctx, guard) for m in self._modules]
-        gathered = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Two-phase execution: producers run in parallel, then consumers
+        # (modules that declare ``needs_upstream_findings``) run sequentially
+        # with the consolidated finding list injected into their parameters.
+        producers = [m for m in self._modules if not m.needs_upstream_findings]
+        consumers = [m for m in self._modules if m.needs_upstream_findings]
 
         findings: list[Finding] = []
         results: list[ModuleResult] = []
         errors: list[str] = []
-        for module, outcome in zip(self._modules, gathered, strict=True):
-            if isinstance(outcome, Exception):
-                msg = f"{module.name}: {outcome!r}"
-                errors.append(msg)
-                log.error("module_failed", module=module.name, error=str(outcome))
-                self._audit.append(
-                    action="module.error",
-                    actor=ctx.actor,
-                    mission=ctx.mission_id,
-                    target=module.name,
-                    meta={"error": str(outcome)},
-                )
-                continue
-            results.append(outcome)
-            findings.extend(outcome.findings)
+
+        if producers:
+            outcomes = await asyncio.gather(
+                *[self._run_module(m, ctx, guard) for m in producers],
+                return_exceptions=True,
+            )
+            for module, outcome in zip(producers, outcomes, strict=True):
+                self._collect(module, outcome, ctx, findings, results, errors)
+
+        for module in consumers:
+            consumer_ctx = MissionContext(
+                mission_id=ctx.mission_id,
+                actor=ctx.actor,
+                scope=ctx.scope,
+                targets=ctx.targets,
+                parameters={
+                    **ctx.parameters,
+                    module.name: {
+                        **(ctx.parameters.get(module.name, {})),
+                        "findings": [_finding_to_dict(f) for f in findings],
+                    },
+                },
+            )
+            try:
+                outcome = await self._run_module(module, consumer_ctx, guard)
+            except Exception as exc:  # noqa: BLE001
+                outcome = exc
+            self._collect(module, outcome, ctx, findings, results, errors)
 
         self._audit.append(
             action="mission.finished",
@@ -99,6 +128,30 @@ class Orchestrator:
             module_results=results,
             errors=errors,
         )
+
+    def _collect(
+        self,
+        module: Module,
+        outcome,
+        ctx: MissionContext,
+        findings: list[Finding],
+        results: list[ModuleResult],
+        errors: list[str],
+    ) -> None:
+        if isinstance(outcome, Exception):
+            msg = f"{module.name}: {outcome!r}"
+            errors.append(msg)
+            log.error("module_failed", module=module.name, error=str(outcome))
+            self._audit.append(
+                action="module.error",
+                actor=ctx.actor,
+                mission=ctx.mission_id,
+                target=module.name,
+                meta={"error": str(outcome)},
+            )
+            return
+        results.append(outcome)
+        findings.extend(outcome.findings)
 
     async def _run_module(
         self, module: Module, ctx: MissionContext, guard: ScopeGuard

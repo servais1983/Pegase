@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/token", response_model=TokenResponse)
 async def token(
+    request: Request,  # noqa: ARG001 - injected so SlowAPIMiddleware sees the route
     form: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_session),
 ) -> TokenResponse:

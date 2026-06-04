@@ -1,0 +1,70 @@
+image:
+  repository: ghcr.io/servais1983/pegase
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 2
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits:   { cpu: 1000m, memory: 1Gi }
+  service:
+    type: ClusterIP
+    port: 8000
+  ingress:
+    enabled: false
+    className: nginx
+    host: pegase.example.com
+    tls:
+      enabled: false
+      secretName: pegase-tls
+
+worker:
+  replicas: 2
+  concurrency: 4
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits:   { cpu: 2000m, memory: 2Gi }
+
+env:
+  PEGASE_ENVIRONMENT: production
+  PEGASE_LOG_LEVEL: INFO
+
+# Secrets must be created out-of-band (sealed-secrets, external-secrets, ...)
+# and referenced here by name. NEVER commit secret values to git.
+secrets:
+  name: pegase-secrets   # must contain: PEGASE_SECRET_KEY, PEGASE_DATABASE_URL,
+                          # PEGASE_DATABASE_SYNC_URL, PEGASE_REDIS_URL,
+                          # PEGASE_CELERY_BROKER_URL, PEGASE_CELERY_RESULT_BACKEND
+
+postgresql:
+  # External managed Postgres recommended in prod (RDS, Cloud SQL, etc).
+  external: true
+
+redis:
+  external: true
+
+persistence:
+  audit:
+    enabled: true
+    storageClass: ""
+    size: 10Gi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+auditShip:
+  enabled: false
+  schedule: "0 2 * * *"      # daily at 02:00 UTC
+  bucket: pegase-audit       # secret must also expose AWS creds + AWS_REGION
+  prefix: "audit/"
+  retentionDays: 2555         # 7 years
+

@@ -59,6 +59,33 @@ make run-api          # in one terminal
 make run-worker       # in another
 ```
 
+## Kubernetes (Helm)
+
+A chart is provided in `helm/pegase/`. It deploys the API + worker, runs the
+Alembic migration as a post-install hook, and (optionally) an audit-shipping
+CronJob.
+
+```bash
+# 1) Create the secret out-of-band (NEVER commit secret values).
+kubectl create secret generic pegase-secrets \
+  --from-literal=PEGASE_SECRET_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(64))')" \
+  --from-literal=PEGASE_DATABASE_URL="postgresql+asyncpg://user:pass@db:5432/pegase" \
+  --from-literal=PEGASE_DATABASE_SYNC_URL="postgresql+psycopg2://user:pass@db:5432/pegase" \
+  --from-literal=PEGASE_REDIS_URL="redis://redis:6379/0" \
+  --from-literal=PEGASE_CELERY_BROKER_URL="redis://redis:6379/1" \
+  --from-literal=PEGASE_CELERY_RESULT_BACKEND="redis://redis:6379/2"
+
+# 2) Install
+helm install pegase ./helm/pegase \
+  --set image.tag=0.1.0 \
+  --set api.ingress.enabled=true \
+  --set api.ingress.host=pegase.example.com
+```
+
+Managed Postgres/Redis are recommended in production (`postgresql.external`
+and `redis.external` default to `true`). Enable TLS at the Ingress with
+`api.ingress.tls.enabled=true` + a cert-manager-issued secret.
+
 ## System requirements
 
 * Python 3.11+

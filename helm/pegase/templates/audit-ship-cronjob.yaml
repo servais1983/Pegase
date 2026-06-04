@@ -1,0 +1,40 @@
+{{- if .Values.auditShip }}
+{{- if .Values.auditShip.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "pegase.fullname" . }}-audit-ship
+  labels:
+    {{- include "pegase.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.auditShip.schedule | quote }}
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: ship
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              command: ["python", "-m", "scripts.ship_audit_to_s3"]
+              envFrom:
+                - secretRef:
+                    name: {{ .Values.secrets.name }}
+              env:
+                - name: PEGASE_AUDIT_S3_BUCKET
+                  value: {{ .Values.auditShip.bucket | quote }}
+                - name: PEGASE_AUDIT_S3_PREFIX
+                  value: {{ .Values.auditShip.prefix | quote }}
+                - name: PEGASE_AUDIT_RETENTION_DAYS
+                  value: {{ .Values.auditShip.retentionDays | quote }}
+              volumeMounts:
+                - name: audit
+                  mountPath: /var/lib/pegase
+          volumes:
+            - name: audit
+              persistentVolumeClaim:
+                claimName: {{ include "pegase.fullname" . }}-audit
+{{- end }}
+{{- end }}

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: pegase
+description: PEGASE - legal pentest orchestration platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/servais1983/Pegase
+sources:
+  - https://github.com/servais1983/Pegase
+maintainers:
+  - name: servais1983

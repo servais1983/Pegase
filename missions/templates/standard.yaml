@@ -1,0 +1,26 @@
+# Standard external-perimeter pentest template.
+# Copy, edit and POST to /api/v1/missions or load via the CLI.
+
+name: external-perimeter-baseline
+client: ""
+targets:
+  - app.customer.example
+  - api.customer.example
+scope_rules:
+  - { pattern: "*.customer.example", include: true }
+  - { pattern: "ceo.customer.example", include: false }
+allowed_actions:
+  - passive
+  - active
+authorization_token: "RoE-REPLACE-ME"
+starts_at: null    # ISO-8601 UTC
+ends_at: null
+parameters:
+  netassault:
+    ports: "1-1024,3306,3389,5432,6379"
+    timing: 3
+  webbreacher:
+    check_paths: true
+    timeout: 15
+  vulnmatrix:
+    nvd_api_key: null

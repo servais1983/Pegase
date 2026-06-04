@@ -42,6 +42,7 @@ class VulnMatrix(Module):
     name = "vulnmatrix"
     description = "Correlate previous findings against known-vulnerable versions and CVE feeds."
     action_type = ActionType.PASSIVE
+    needs_upstream_findings = True
 
     async def run(
         self,

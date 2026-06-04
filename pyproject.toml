@@ -36,6 +36,7 @@ dependencies = [
     "structlog==24.4.0",
     "prometheus-client==0.21.1",
     "tenacity==9.0.0",
+    "slowapi==0.1.9",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,8 @@ dev = [
     "ruff==0.8.4",
     "mypy==1.13.0",
     "types-pyyaml==6.0.12.20240917",
+    "aiosqlite==0.20.0",
+    "pre-commit==4.0.1",
 ]
 
 [project.scripts]

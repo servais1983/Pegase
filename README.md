@@ -23,15 +23,16 @@ hash-chained audit log, and a REST API + CLI.
 | Layer        | Implementation                                                                                                    |
 |--------------|-------------------------------------------------------------------------------------------------------------------|
 | Core         | Mission orchestrator, async runtime, JWT auth, hash-chained audit log, RoE / scope guard.                          |
-| Modules      | `recon` (DNS + WHOIS + CT-logs), `netassault` (nmap), `webbreacher` (HTTP surface), `vulnmatrix` (correlation + opt-in NVD). |
+| Modules      | `recon` (DNS + WHOIS + CT-logs), `netassault` (nmap), `webbreacher` (HTTP surface), `socialmatrix` (phishing-sim kit + consent ledger), `vulnmatrix` (correlation + opt-in NVD). |
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
 | Async work   | Celery workers backed by Redis.                                                                                    |
 | API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
 | CLI          | `pegase` (click + rich) - scan, modules, audit verify, user management.                                            |
 | Reporting    | JSON and stand-alone HTML reports per mission.                                                                     |
 | Observability| `/healthz`, `/readyz`, `/metrics` (Prometheus), structured JSON logs (`structlog`).                                 |
-| Deployment   | Multi-stage Dockerfile, non-root runtime, healthchecks; `docker compose up` brings up the full stack.              |
-| CI           | GitHub Actions: ruff, pytest + coverage against real Postgres/Redis, Docker build, CodeQL.                          |
+| Deployment   | Multi-stage Dockerfile, non-root runtime, healthchecks; `docker compose up` brings up the full stack (postgres + redis + api + worker + nginx reverse proxy). Helm chart in `helm/pegase/` for Kubernetes. |
+| CI           | GitHub Actions: ruff, mypy, pytest + coverage against real Postgres/Redis, Docker build, CodeQL. Pre-commit config bundled.                          |
+| Hardening    | Per-IP rate limiting via SlowAPI, nginx reverse proxy with security headers, CronJob shipping audit log to S3 Object Lock for 7-year compliance retention. |
 
 ---
 
@@ -150,7 +151,8 @@ Detailed design notes live in [`docs/architecture/architecture_globale.md`](docs
 | `recon`       | passive  | A/AAAA/MX/NS/TXT/CNAME/SOA via `dnspython`, WHOIS via `python-whois`, subdomain harvesting from <https://crt.sh>. |
 | `netassault`  | active   | Wraps `nmap` via `python-nmap`. Default profile: `-sT -sV -Pn -T3 1-1024`. Tunable via mission parameters. |
 | `webbreacher` | active   | HTTP fingerprinting, OWASP-secure-headers audit, probes for a short list of common sensitive paths (`.env`, `.git/config`, `server-status`, ...). |
-| `vulnmatrix`  | passive  | Correlates banners/fingerprints from upstream findings against a curated list of known-vulnerable versions; optional NVD CVE lookup when an API key is supplied. |
+| `socialmatrix`| passive  | Phishing-simulation kit generator: per-recipient landing page + tracking token + consent-ledger entry in the audit log. **Does not send mail** - delivery is operator-controlled and out-of-band. Click events captured by the public `/track/{token}` endpoint. |
+| `vulnmatrix`  | passive  | Correlates banners/fingerprints from upstream findings against a curated list of known-vulnerable versions; optional NVD CVE lookup when an API key is supplied. Runs **after** other modules thanks to the orchestrator's `needs_upstream_findings` dependency hint. |
 
 Modules conform to a single ABC (`pegase.modules.base.Module`) so adding a new
 one is a single file + an entry in `available_modules()`.

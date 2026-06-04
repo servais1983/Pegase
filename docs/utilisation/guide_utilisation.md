@@ -77,7 +77,65 @@ curl -H "$H" http://localhost:8000/api/v1/reports/$MISSION.html > report.html
 | `recon`       | passive  | DNS (A/AAAA/MX/NS/TXT/CNAME/SOA), WHOIS, CT-log subs.    |
 | `netassault`  | active   | `nmap` TCP scan with service/version detection.          |
 | `webbreacher` | active   | HTTP headers, fingerprint, common sensitive paths.       |
-| `vulnmatrix`  | passive  | Correlates banners against known-vulnerable versions and (opt-in) the NVD CVE feed. |
+| `socialmatrix`| passive  | Phishing-sim kit generator: landing page + tracking token + consent ledger. Never sends mail. |
+| `vulnmatrix`  | passive  | Correlates banners against known-vulnerable versions and (opt-in) the NVD CVE feed. Runs after producers. |
 
 `netassault` defaults to `-sT` (TCP connect) so it works unprivileged. Run the
 container with `--cap-add=NET_RAW` to enable `-sS` (SYN scan).
+
+## Module chaining
+
+The orchestrator runs in two phases. "Producer" modules (`recon`,
+`netassault`, `webbreacher`, `socialmatrix`) run concurrently. Any module that
+declares `needs_upstream_findings = True` (currently `vulnmatrix`) runs
+afterwards and receives the consolidated finding list via
+`parameters["<module>"]["findings"]`. So a mission with
+`["netassault", "vulnmatrix"]` automatically feeds nmap banners into the CVE
+correlator - no manual wiring needed.
+
+## Mission templates
+
+Ready-to-edit YAML templates live in `missions/templates/`:
+
+| template                  | purpose                                            |
+|---------------------------|----------------------------------------------------|
+| `standard.yaml`           | external-perimeter baseline (recon + net + web)    |
+| `full-stack.yaml`         | full chain incl. vulnmatrix correlation            |
+| `phishing-awareness.yaml` | SocialMatrix campaign (delivery stays operator-side)|
+
+Validate one before use:
+
+```bash
+pegase template missions/templates/standard.yaml
+```
+
+## SocialMatrix & phishing simulation
+
+SocialMatrix **never sends email**. It generates, per recipient:
+
+* a landing page (with a visible "this is a simulation" banner),
+* a unique tracking token,
+* a `socialmatrix.consent_recorded` entry in the immutable audit log,
+  carrying a SHA-256 of the recipient address and the `consent_proof`
+  reference to the signed RoE clause.
+
+It refuses to run without a `consent_proof` parameter and re-checks that every
+recipient's email domain is in scope. Delivery is performed out-of-band by the
+operator using the generated `campaign.json` manifest. Click-throughs are
+captured by the public `POST/GET /track/{token}` endpoint, which stores only
+the opaque token, a hashed source IP and the user-agent - no recipient PII.
+
+## Audit log shipping (compliance)
+
+For long-term, tamper-evident retention, ship rotated audit segments to S3
+Object Lock:
+
+```bash
+PEGASE_AUDIT_S3_BUCKET=my-audit-bucket \
+PEGASE_AUDIT_RETENTION_DAYS=2555 \
+python -m scripts.ship_audit_to_s3
+```
+
+The script verifies the chain before rotating, then uploads with
+`ObjectLockMode=COMPLIANCE`. In Kubernetes this runs as the
+`audit-ship` CronJob (enable it in `helm/pegase/values.yaml`).

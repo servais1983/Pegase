@@ -89,6 +89,28 @@ def create_user(username: str, email: str, password: str, role: str) -> None:
     console.print(f"[green]created user {username} (role={role})[/green]")
 
 
+@cli.command("template")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+def template_cmd(path: str) -> None:
+    """Validate a mission template YAML file."""
+    import yaml
+
+    with open(path, encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)
+    required = {"name", "targets", "scope_rules", "authorization_token"}
+    missing = required - set(data or {})
+    if missing:
+        console.print(f"[red]missing keys[/red]: {sorted(missing)}")
+        sys.exit(1)
+    if not data.get("targets"):
+        console.print("[red]targets cannot be empty[/red]")
+        sys.exit(1)
+    console.print(
+        f"[green]OK[/green] template '{data['name']}' "
+        f"({len(data['targets'])} target(s))"
+    )
+
+
 @cli.command("scan")
 @click.option("--target", "targets", multiple=True, required=True, help="Target host/URL/CIDR")
 @click.option("--module", "modules", multiple=True, default=("recon",), help="Module(s) to run")

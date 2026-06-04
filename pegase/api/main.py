@@ -10,10 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from pegase.api.routes import auth, findings, missions, reports, system
+from pegase.api.routes import auth, findings, missions, reports, system, tracking
 from pegase.core.config import get_settings
 from pegase.core.logging import configure_logging, get_logger
 from pegase.core.scope import ScopeViolation
@@ -44,6 +48,21 @@ def create_app() -> FastAPI:
         description="Penetration Engagement for Global Attack Simulation & Evasion",
         lifespan=lifespan,
     )
+
+    # Use Redis-backed storage only in production; fall back to in-memory
+    # otherwise so unit tests (and `pegase-api` without a running Redis)
+    # do not crash on a refused connection.
+    storage_uri = settings.redis_url if settings.is_production else "memory://"
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["120/minute"],
+        storage_uri=storage_uri,
+        headers_enabled=True,
+    )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -75,6 +94,7 @@ def create_app() -> FastAPI:
     app.include_router(findings.router, prefix=v1)
     app.include_router(reports.router, prefix=v1)
     app.include_router(system.router)
+    app.include_router(tracking.router)  # public, unauthenticated
 
     if FRONTEND_DIR.exists():
         app.mount(

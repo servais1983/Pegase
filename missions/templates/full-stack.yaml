@@ -1,0 +1,22 @@
+# Full-stack: recon -> netassault -> webbreacher -> vulnmatrix (chained).
+
+name: full-stack-engagement
+client: ""
+targets:
+  - app.customer.example
+scope_rules:
+  - { pattern: "*.customer.example", include: true }
+allowed_actions:
+  - passive
+  - active
+authorization_token: "RoE-REPLACE-ME"
+parameters:
+  recon:
+    ct_logs: true
+    whois: true
+  netassault:
+    ports: "1-65535"
+    timing: 4
+  webbreacher:
+    check_paths: true
+  vulnmatrix: {}

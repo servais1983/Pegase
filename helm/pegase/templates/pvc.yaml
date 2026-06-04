@@ -1,0 +1,16 @@
+{{- if .Values.persistence.audit.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pegase.fullname" . }}-audit
+  labels:
+    {{- include "pegase.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.persistence.audit.size }}
+  {{- if .Values.persistence.audit.storageClass }}
+  storageClassName: {{ .Values.persistence.audit.storageClass }}
+  {{- end }}
+{{- end }}

@@ -123,3 +123,23 @@ class Finding(Base):
     )
 
     mission: Mapped[Mission] = relationship(back_populates="findings")
+
+
+class PhishClick(Base):
+    """Click event recorded by the SocialMatrix tracking endpoint.
+
+    No PII is stored - the recipient identity is hashed in the consent ledger,
+    and the click row only carries the opaque token, timestamps and minimal
+    request metadata for forensic correlation.
+    """
+
+    __tablename__ = "phish_clicks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    campaign_id: Mapped[str] = mapped_column(String(64), index=True)
+    token: Mapped[str] = mapped_column(String(64), index=True, unique=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    clicked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now
+    )

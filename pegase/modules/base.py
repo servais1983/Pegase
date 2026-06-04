@@ -28,11 +28,18 @@ class ModuleResult:
 
 
 class Module(ABC):
-    """Base class for every attack / support module."""
+    """Base class for every attack / support module.
+
+    ``needs_upstream_findings`` is the dependency hint used by the
+    Orchestrator: modules with this flag run only after every other module
+    has finished, and receive the consolidated finding list through
+    ``parameters["findings"]``.
+    """
 
     name: ClassVar[str] = "module"
     description: ClassVar[str] = ""
     action_type: ClassVar[ActionType] = ActionType.PASSIVE
+    needs_upstream_findings: ClassVar[bool] = False
 
     @abstractmethod
     async def run(

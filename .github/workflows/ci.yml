@@ -49,6 +49,9 @@ jobs:
       - name: Lint
         run: ruff check pegase tests
 
+      - name: Type check
+        run: mypy pegase || true   # non-blocking until baseline is clean
+
       - name: Migrate
         env:
           PEGASE_DATABASE_SYNC_URL: postgresql+psycopg2://pegase:pegase@localhost:5432/pegase

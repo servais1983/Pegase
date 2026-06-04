@@ -1,0 +1,24 @@
+# Phishing-simulation campaign template.
+# Sending is OUT OF SCOPE: PEGASE only prepares the kit (landing pages,
+# tracking tokens, consent ledger). Operator handles delivery via a
+# corporate SMTP relay AFTER reviewing the manifest.
+
+name: q2-awareness-campaign
+client: ""
+targets:
+  - customer.example
+scope_rules:
+  - { pattern: "customer.example", include: true }
+allowed_actions:
+  - passive
+authorization_token: "RoE-AWARENESS-001"
+parameters:
+  socialmatrix:
+    campaign_id: "q2-2026"
+    brand: "Customer Corp"
+    template: "generic-login"
+    consent_proof: "RoE-AWARENESS-001 clause 4.2 (employee awareness training)"
+    operator: "secops@customer.example"
+    recipients:
+      - { email: "alice@customer.example", name: "Alice" }
+      - { email: "bob@customer.example",   name: "Bob"   }
