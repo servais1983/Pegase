@@ -69,7 +69,13 @@ class Mission(Base):
     name: Mapped[str] = mapped_column(String(255), index=True)
     client: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[MissionStatus] = mapped_column(
-        SAEnum(MissionStatus, name="mission_status"),
+        SAEnum(
+            MissionStatus,
+            name="mission_status",
+            # Store enum .value (lowercase) to match the DB type, not the
+            # member NAME which SQLAlchemy uses by default.
+            values_callable=lambda e: [m.value for m in e],
+        ),
         default=MissionStatus.DRAFT,
         index=True,
     )
@@ -114,7 +120,12 @@ class Finding(Base):
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
     severity: Mapped[Severity] = mapped_column(
-        SAEnum(Severity, name="finding_severity"), default=Severity.INFO
+        SAEnum(
+            Severity,
+            name="finding_severity",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=Severity.INFO,
     )
     evidence: Mapped[dict] = mapped_column(JSON, default=dict)
     references: Mapped[list] = mapped_column(JSON, default=list)

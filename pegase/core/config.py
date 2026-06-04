@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     )
     jwt_algorithm: str = Field(default="HS256")
     jwt_expire_minutes: int = Field(default=60 * 8)
+    refresh_token_expire_days: int = Field(default=14)
 
     database_url: str = Field(
         default="postgresql+asyncpg://pegase:pegase@localhost:5432/pegase",

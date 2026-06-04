@@ -35,6 +35,12 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
+def _new_jti() -> str:
+    import uuid
+
+    return uuid.uuid4().hex
+
+
 def create_access_token(
     subject: str,
     *,
@@ -49,11 +55,33 @@ def create_access_token(
     payload: dict[str, Any] = {
         "sub": subject,
         "role": role,
+        "type": "access",
+        "jti": _new_jti(),
         "exp": expire,
         "iat": datetime.now(UTC),
     }
     if extra:
         payload.update(extra)
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+
+
+def create_refresh_token(
+    subject: str,
+    *,
+    role: str = "operator",
+    expires_days: int | None = None,
+) -> str:
+    settings = get_settings()
+    days = expires_days or settings.refresh_token_expire_days
+    expire = datetime.now(UTC) + timedelta(days=days)
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "role": role,
+        "type": "refresh",
+        "jti": _new_jti(),
+        "exp": expire,
+        "iat": datetime.now(UTC),
+    }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 

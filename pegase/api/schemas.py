@@ -10,8 +10,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"  # noqa: S105 - OAuth2 token type, not a secret
     expires_in: int
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class LoginRequest(BaseModel):

@@ -69,9 +69,11 @@ class Scope:
 
     def in_window(self, now: datetime | None = None) -> bool:
         now = now or datetime.now(UTC)
-        if self.starts_at and now < self.starts_at:
+        starts = _as_aware(self.starts_at)
+        ends = _as_aware(self.ends_at)
+        if starts and now < starts:
             return False
-        return not (self.ends_at and now > self.ends_at)
+        return not (ends and now > ends)
 
     def covers(self, target: str) -> bool:
         normalized = _normalize(target)
@@ -125,6 +127,20 @@ class ScopeGuard:
 
 
 # ---------- matching helpers ---------------------------------------------
+
+
+def _as_aware(dt: datetime | None) -> datetime | None:
+    """Coerce a possibly-naive datetime to UTC.
+
+    Datetimes loaded from SQLite (and some drivers) come back naive even though
+    they were stored as UTC. Treat naive values as UTC so window comparisons
+    never raise ``can't compare offset-naive and offset-aware datetimes``.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
 
 
 def _normalize(target: str) -> str:

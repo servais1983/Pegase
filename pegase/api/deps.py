@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pegase.core.auth import decode_token
+from pegase.core.revocation import get_revocation_store
 from pegase.db.models import User
 from pegase.db.session import get_session
 
@@ -26,6 +27,12 @@ async def current_user(
             detail=str(exc),
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+    if payload.get("type") not in (None, "access"):
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "refresh token cannot be used here"
+        )
+    if get_revocation_store().is_revoked(payload.get("jti", "")):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token revoked")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing subject")

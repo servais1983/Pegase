@@ -18,12 +18,15 @@ router = APIRouter(prefix="/findings", tags=["findings"])
 async def list_findings(
     mission_id: str | None = Query(default=None),
     severity: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_session),
 ) -> list[Finding]:
-    stmt = select(Finding).order_by(Finding.discovered_at.desc()).limit(500)
+    stmt = select(Finding).order_by(Finding.discovered_at.desc())
     if mission_id:
         stmt = stmt.where(Finding.mission_id == mission_id)
     if severity:
         stmt = stmt.where(Finding.severity == severity)
+    stmt = stmt.offset(offset).limit(limit)
     return list(await db.scalars(stmt))

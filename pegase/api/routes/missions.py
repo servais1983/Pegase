@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,10 +24,17 @@ router = APIRouter(prefix="/missions", tags=["missions"])
 
 @router.get("", response_model=list[MissionOut])
 async def list_missions(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    status_filter: str | None = Query(default=None, alias="status"),
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_session),
 ) -> list[Mission]:
-    missions = await db.scalars(select(Mission).order_by(Mission.created_at.desc()))
+    stmt = select(Mission).order_by(Mission.created_at.desc())
+    if status_filter:
+        stmt = stmt.where(Mission.status == status_filter)
+    stmt = stmt.offset(offset).limit(limit)
+    missions = await db.scalars(stmt)
     return list(missions)
 
 

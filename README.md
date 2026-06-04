@@ -25,6 +25,7 @@ hash-chained audit log, and a REST API + CLI.
 | Core         | Mission orchestrator, async runtime, JWT auth, hash-chained audit log, RoE / scope guard.                          |
 | Modules      | 11 modules: `recon`, `netassault`, `webbreacher`, `socialmatrix`, `cloudstrike`, `mobilehunter`, `wirelessphantom`, `physicalvector`, `toolforge`, `vulnmatrix`, `postxploit`. |
 | Scenarios    | ThreatSim engine: named multi-stage kill-chains (`recon-and-enumerate`, `external-apt`, `cloud-review`) + custom YAML. |
+| Auth         | JWT access + refresh tokens, `/auth/refresh`, `/auth/logout` with Redis-backed revocation (jti blocklist). |
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
 | Async work   | Celery workers backed by Redis.                                                                                    |
 | API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
@@ -190,9 +191,16 @@ See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.
 ```bash
 pip install -e ".[dev]"
 ruff check pegase tests
-pytest                      # unit tests
+pytest                      # 44 unit tests (scope, audit, auth+refresh+revocation,
+                            #   orchestrator chaining, all modules, scenarios,
+                            #   API routes + worker pipeline on in-memory SQLite)
 pytest -m integration       # needs Postgres + Redis on localhost
 ```
+
+The full Docker stack (postgres + redis + api + worker + nginx) has been
+validated end-to-end: login → create mission → Celery worker runs real
+recon/web modules → findings persisted → report + attack-graph served →
+audit hash-chain verified (`pegase audit`).
 
 CI runs the same matrix on every push (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
 

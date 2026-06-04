@@ -17,6 +17,10 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+# Each enum type is used by exactly one table, so we let the corresponding
+# CREATE TABLE own its lifecycle (create_type defaults to True). We do NOT
+# pre-create them, which avoids the "type already exists" telescoping between an
+# explicit .create() and the implicit create during create_table.
 mission_status = sa.Enum(
     "draft",
     "authorized",
@@ -32,9 +36,6 @@ finding_severity = sa.Enum(
 
 
 def upgrade() -> None:
-    mission_status.create(op.get_bind(), checkfirst=True)
-    finding_severity.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "users",
         sa.Column("id", sa.String(length=36), primary_key=True),

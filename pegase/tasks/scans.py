@@ -20,7 +20,7 @@ from pegase.core.logging import configure_logging, get_logger
 from pegase.core.orchestrator import MissionContext, Orchestrator
 from pegase.core.scope import ActionType, Scope, ScopeRule
 from pegase.db.models import Finding as FindingModel
-from pegase.db.models import Mission, MissionStatus
+from pegase.db.models import Mission, MissionStatus, Severity
 from pegase.modules import available_modules
 from pegase.tasks.celery_app import celery_app
 
@@ -76,7 +76,7 @@ def run_mission_task(self, mission_id: str, modules: list[str], actor: str) -> d
                     target=f.target,
                     title=f.title,
                     description=f.description,
-                    severity=f.severity,
+                    severity=Severity(f.severity),
                     evidence=f.evidence,
                     references=f.references,
                     discovered_at=datetime.now(UTC),
