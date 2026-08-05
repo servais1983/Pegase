@@ -4,6 +4,7 @@ from pegase.modules.base import Finding, Module, ModuleResult
 from pegase.modules.cloudstrike import CloudStrike
 from pegase.modules.mobilehunter import MobileHunter
 from pegase.modules.netassault import NetAssault
+from pegase.modules.neuroprobe import NeuroProbe
 from pegase.modules.physicalvector import PhysicalVector
 from pegase.modules.postxploit import PostXploit
 from pegase.modules.recon import ReconSphere
@@ -20,6 +21,7 @@ __all__ = [
     "CloudStrike",
     "MobileHunter",
     "NetAssault",
+    "NeuroProbe",
     "PhysicalVector",
     "PostXploit",
     "ReconSphere",
@@ -47,5 +49,6 @@ def available_modules() -> dict[str, type[Module]]:
             ToolForge,
             VulnMatrix,
             PostXploit,
+            NeuroProbe,
         )
     }

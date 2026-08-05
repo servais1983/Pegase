@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,9 +15,19 @@ from pegase.reporting.generator import build_html_report, build_json_report
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
+async def _maybe_ai_analysis(ai: bool, findings: list[Finding]) -> dict | None:
+    if not ai:
+        return None
+    from pegase.ai.advisor import AIAdvisor
+
+    analysis = await AIAdvisor().analyze(list(findings))
+    return analysis.to_dict()
+
+
 @router.get("/{mission_id}.json")
 async def json_report(
     mission_id: str,
+    ai: bool = Query(default=False, description="Include grounded AI advisor analysis"),
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_session),
 ) -> JSONResponse:
@@ -31,7 +41,8 @@ async def json_report(
             .order_by(Finding.severity)
         )
     )
-    return JSONResponse(build_json_report(mission, findings))
+    analysis = await _maybe_ai_analysis(ai, findings)
+    return JSONResponse(build_json_report(mission, findings, analysis))
 
 
 @router.get("/{mission_id}/graph.json")
@@ -78,6 +89,7 @@ async def attack_graph(
 @router.get("/{mission_id}.html", response_class=HTMLResponse)
 async def html_report(
     mission_id: str,
+    ai: bool = Query(default=False, description="Include grounded AI advisor analysis"),
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
@@ -91,4 +103,5 @@ async def html_report(
             .order_by(Finding.severity)
         )
     )
-    return HTMLResponse(build_html_report(mission, findings))
+    analysis = await _maybe_ai_analysis(ai, findings)
+    return HTMLResponse(build_html_report(mission, findings, analysis))

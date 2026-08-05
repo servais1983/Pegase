@@ -24,9 +24,13 @@ def _sev(f) -> str:
     return s.value if hasattr(s, "value") else str(s)
 
 
-def build_json_report(mission: Mission, findings: list[Finding]) -> dict[str, Any]:
+def build_json_report(
+    mission: Mission,
+    findings: list[Finding],
+    ai_analysis: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     by_sev = Counter(_sev(f) for f in findings)
-    return {
+    report = {
         "generated_at": datetime.now(UTC).isoformat(),
         "mission": {
             "id": mission.id,
@@ -63,9 +67,45 @@ def build_json_report(mission: Mission, findings: list[Finding]) -> dict[str, An
             )
         ],
     }
+    if ai_analysis is not None:
+        report["ai_analysis"] = ai_analysis
+    return report
 
 
-def build_html_report(mission: Mission, findings: list[Finding]) -> str:
+def _ai_section_html(ai_analysis: dict[str, Any] | None) -> str:
+    if not ai_analysis:
+        return ""
+    risks = ai_analysis.get("prioritized_risks", [])
+    risk_rows = "".join(
+        f"""<tr>
+              <td><span style="color:{SEVERITY_COLOR.get(r.get('severity',''), '#888')};
+                  font-weight:600">{escape(str(r.get('severity','')))}</span></td>
+              <td><strong>{escape(str(r.get('title','')))}</strong></td>
+              <td>{escape(', '.join(r.get('targets', [])[:4]))}</td>
+              <td>{escape(str(r.get('remediation','')))}</td>
+            </tr>"""
+        for r in risks
+    )
+    provider = escape(str(ai_analysis.get("provider", "offline")))
+    llm_used = ai_analysis.get("llm_used", False)
+    return f"""
+  <div class="ai">
+    <h2>AI advisor <span class="tag">Neuro</span></h2>
+    <p class="meta">provider <code>{provider}</code>
+       &middot; llm_used <code>{llm_used}</code>
+       &middot; risk score <strong>{escape(str(ai_analysis.get('risk_score', 0)))}/100</strong></p>
+    <p><strong>Executive summary.</strong> {escape(str(ai_analysis.get('executive_summary','')))}</p>
+    <p><strong>Attack narrative.</strong> {escape(str(ai_analysis.get('attack_narrative','')))}</p>
+    {"<table><thead><tr><th>Severity</th><th>Risk</th><th>Targets</th><th>Remediation</th></tr></thead><tbody>" + risk_rows + "</tbody></table>" if risk_rows else ""}
+  </div>
+"""
+
+
+def build_html_report(
+    mission: Mission,
+    findings: list[Finding],
+    ai_analysis: dict[str, Any] | None = None,
+) -> str:
     sev_count = Counter(
         f.severity.value if hasattr(f.severity, "value") else str(f.severity)
         for f in findings
@@ -121,6 +161,9 @@ def build_html_report(mission: Mission, findings: list[Finding]) -> str:
   th, td {{ text-align:left; border-bottom:1px solid #eee; padding:10px; vertical-align:top; }}
   th {{ background:#fafafa; font-size:13px; text-transform:uppercase; letter-spacing:1px; }}
   .summary {{ margin:16px 0; }}
+  .ai {{ margin:24px 0; padding:16px 20px; background:#f6f8ff; border:1px solid #dde3ff; border-radius:10px; }}
+  .ai h2 {{ margin:0 0 8px; }}
+  .tag {{ background:#4b5bdc; color:#fff; font-size:11px; padding:2px 8px; border-radius:10px; vertical-align:middle; }}
 </style>
 </head>
 <body>
@@ -135,6 +178,7 @@ def build_html_report(mission: Mission, findings: list[Finding]) -> str:
     {"".join(sev_chip(s, n) for s, n in sev_count.most_common())}
     <strong style="margin-left:12px">Total: {len(findings)}</strong>
   </div>
+  {_ai_section_html(ai_analysis)}
   <table>
     <thead><tr><th>Severity</th><th>Module</th><th>Target</th><th>Finding</th></tr></thead>
     <tbody>{"".join(rows) or '<tr><td colspan="4">No findings.</td></tr>'}</tbody>

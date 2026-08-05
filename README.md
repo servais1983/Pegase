@@ -23,13 +23,14 @@ hash-chained audit log, and a REST API + CLI.
 | Layer        | Implementation                                                                                                    |
 |--------------|-------------------------------------------------------------------------------------------------------------------|
 | Core         | Mission orchestrator, async runtime, JWT auth, hash-chained audit log, RoE / scope guard.                          |
-| Modules      | 11 modules: `recon`, `netassault`, `webbreacher`, `socialmatrix`, `cloudstrike`, `mobilehunter`, `wirelessphantom`, `physicalvector`, `toolforge`, `vulnmatrix`, `postxploit`. |
-| Scenarios    | ThreatSim engine: named multi-stage kill-chains (`recon-and-enumerate`, `external-apt`, `cloud-review`) + custom YAML. |
+| Modules      | 12 modules: `recon`, `netassault`, `webbreacher`, `socialmatrix`, `cloudstrike`, `mobilehunter`, `wirelessphantom`, `physicalvector`, `toolforge`, `vulnmatrix`, `postxploit`, `neuroprobe`. |
+| AI (Neuro)   | LLM-augmented intelligence layer: grounded findings advisor (risk score, prioritized risks + remediation, attack narrative), recon-aware module selection, multi-model validation jury, and an anti-hallucination guardrail ("no claim without a receipt"). Multi-provider (offline / Anthropic / OpenAI / Ollama); **fully deterministic and offline by default** — no keys, nothing leaves the host. |
+| Scenarios    | ThreatSim engine: named multi-stage kill-chains (`recon-and-enumerate`, `external-apt`, `cloud-review`, `llm-redteam`) + custom YAML. |
 | Auth         | JWT access + refresh tokens, `/auth/refresh`, `/auth/logout` with Redis-backed revocation (jti blocklist). |
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
 | Async work   | Celery workers backed by Redis.                                                                                    |
 | API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
-| CLI          | `pegase` (click + rich) - scan, scenarios, template, modules, audit verify, user management.                       |
+| CLI          | `pegase` (click + rich) - scan (with `--ai`), scenarios, template, modules, audit verify, user management, `ai advise` / `ai recommend` / `ai providers`. |
 | Reporting    | JSON and stand-alone HTML reports per mission.                                                                     |
 | Observability| `/healthz`, `/readyz`, `/metrics` (Prometheus), structured JSON logs (`structlog`).                                 |
 | Deployment   | Multi-stage Dockerfile, non-root runtime, healthchecks; `docker compose up` brings up the full stack (postgres + redis + api + worker + nginx reverse proxy). Helm chart in `helm/pegase/` for Kubernetes. |
@@ -129,12 +130,19 @@ pegase scan \
             │  │  time window + CIDR/host   │  │
             │  └─────────────┬──────────────┘  │
             │                │                 │
-            │  11 modules: recon · netassault  │
+            │  12 modules: recon · netassault  │
             │  webbreacher · socialmatrix      │
             │  cloudstrike · mobilehunter      │
             │  wirelessphantom · physicalvector│
             │  toolforge · vulnmatrix          │
-            │  postxploit (graph)              │
+            │  postxploit (graph) · neuroprobe │
+            └──────────────┬───────────────────┘
+                           │ findings
+            ┌──────────────▼───────────────────┐
+            │      AI layer ("Neuro")          │
+            │  advisor · module selection ·    │
+            │  jury · grounding guardrail      │
+            │  (offline default, LLM-optional) │
             └──────────────┬───────────────────┘
                            │
    ┌───────────────┐       │      ┌────────────────────┐
@@ -165,9 +173,66 @@ Detailed design notes live in [`docs/architecture/architecture_globale.md`](docs
 | `toolforge`   | active   | Runs **allowlisted** third-party CLI tools (nuclei, nikto, whatweb, testssl, ...) with `{target}` substitution and `shell=False` - no command-injection surface. Every target is scope-checked. |
 | `vulnmatrix`  | passive  | Correlates banners/fingerprints from upstream findings against a curated list of known-vulnerable versions; optional NVD CVE lookup. Runs **after** producers (`needs_upstream_findings`). |
 | `postxploit`  | passive  | Consumer module that synthesises all findings into an attack-path graph (assets + pivot edges), rendered with D3 at `/graph` and served by `/api/v1/reports/{id}/graph.json`. |
+| `neuroprobe`  | active   | AI/LLM endpoint red-teaming (OWASP Top 10 for LLM Applications). Sends **benign, non-destructive** probes to an in-scope chat/LLM HTTP endpoint to *detect* prompt injection (LLM01, via a random canary token) and system-prompt disclosure (LLM06). Detection-only, redacted receipts, scope-checked like every module. |
 
 Modules conform to a single ABC (`pegase.modules.base.Module`) so adding a new
 one is a single file + an entry in `available_modules()`.
+
+---
+
+## AI layer ("Neuro")
+
+PEGASE ships its own LLM-augmented intelligence layer (`pegase/ai/`). It turns
+raw findings into decision-ready output **without inheriting LLM hallucination
+risk** — and it works with zero API keys.
+
+* **Grounded advisor** (`AIAdvisor`) — a deterministic engine that always runs:
+  a 0-100 risk score, prioritized & de-duplicated risks each carrying its
+  receipts and a remediation from a curated knowledge base, an attack-chain
+  narrative, and an executive summary. When an LLM provider is configured, its
+  narrative is layered on top — but only after every sentence passes the
+  grounding guardrail.
+* **Grounding guardrail** (`Grounder`) — *"no claim without a receipt."* Every
+  model-produced sentence must reference a real finding (by id, target or an
+  evidence token that actually occurred) or it is dropped. Deterministic and
+  model-free, so the guardrail can never itself hallucinate.
+* **Recon-aware selection** (`recommend_modules`) — suggests which modules to
+  run next based on what recon actually observed, with a reason and priority
+  (e.g. a chat endpoint triggers `neuroprobe`; open web ports trigger
+  `webbreacher`).
+* **Multi-model jury** (`Jury`) — validates a finding with a panel of models; a
+  deterministic, evidence-only juror is always on the panel, so confidence is
+  defensible even with no LLM configured.
+* **Multi-provider** — `offline` (default, deterministic, air-gapped),
+  `anthropic`, `openai`, `ollama`. Cloud providers without a key silently
+  degrade to offline so the AI layer can never take the platform down.
+
+```bash
+# Providers & active configuration
+pegase ai providers
+
+# Grounded analysis of a JSON report (offline by default)
+pegase ai advise report.json
+pegase ai recommend report.json        # what to run next
+
+# Inline during a scan
+pegase scan --target scanme.nmap.org --module recon --authorization ROE-x --ai
+
+# LLM red-team scenario (OWASP LLM Top 10)
+pegase scan --target https://app.example.com/chat \
+  --scenario llm-redteam --authorization ROE-x --allow-active
+```
+
+Over the API: `GET /api/v1/ai/providers`,
+`GET /api/v1/ai/missions/{id}/advise`,
+`GET /api/v1/ai/missions/{id}/recommend`,
+`GET /api/v1/ai/missions/{id}/jury`, and `?ai=true` on the JSON/HTML report
+endpoints to embed the advisor section.
+
+To enable an LLM backend, set `PEGASE_AI_PROVIDER` + `PEGASE_AI_API_KEY` (see
+[`.env.example`](.env.example)). The official SDKs are an optional extra:
+`pip install -e ".[ai]"` (not required — cloud providers are reached over the
+existing `httpx` dependency).
 
 ---
 
@@ -195,9 +260,10 @@ See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.
 ```bash
 pip install -e ".[dev]"
 ruff check pegase tests
-pytest                      # 45 unit tests (scope, audit, auth+refresh+revocation,
+pytest                      # 71 unit tests (scope, audit, auth+refresh+revocation,
                             #   orchestrator chaining, all modules, scenarios,
-                            #   API routes + worker pipeline on in-memory SQLite)
+                            #   AI layer: grounding, advisor, selection, jury,
+                            #   neuroprobe, API routes + worker pipeline on SQLite)
 pytest -m integration       # needs Postgres + Redis on localhost
 ```
 
@@ -223,6 +289,9 @@ plus the attack-graph view. Delivered:
 * ✅ ToolForge — allowlisted third-party tool integration.
 * ✅ PostXploit — attack-path graph builder + D3 visualization.
 * ✅ ThreatSim — multi-stage scenario engine.
+* ✅ AI layer ("Neuro") — grounded advisor, recon-aware module selection,
+  multi-model jury, anti-hallucination guardrail (offline-first, LLM-optional).
+* ✅ NeuroProbe — AI/LLM endpoint red-teaming (OWASP LLM Top 10, benign detection).
 
 Still on the horizon:
 
