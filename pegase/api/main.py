@@ -17,7 +17,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from pegase.api.routes import auth, findings, missions, reports, system, tracking
+from pegase.api.routes import ai, auth, findings, missions, reports, system, tracking
 from pegase.core.config import get_settings
 from pegase.core.logging import configure_logging, get_logger
 from pegase.core.scope import ScopeViolation
@@ -93,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(missions.router, prefix=v1)
     app.include_router(findings.router, prefix=v1)
     app.include_router(reports.router, prefix=v1)
+    app.include_router(ai.router, prefix=v1)
     app.include_router(system.router)
     app.include_router(tracking.router)  # public, unauthenticated
 

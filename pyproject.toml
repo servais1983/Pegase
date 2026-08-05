@@ -46,6 +46,13 @@ cloud = [
 mobile = [
     "androguard==4.1.2",
 ]
+# The AI layer needs no extra packages: cloud providers are reached over the
+# existing ``httpx`` dependency and the default provider is fully offline. This
+# extra only pins the official SDKs for teams that prefer them.
+ai = [
+    "anthropic==0.42.0",
+    "openai==1.59.6",
+]
 dev = [
     "pytest==8.3.4",
     "pytest-asyncio==0.25.0",

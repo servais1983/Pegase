@@ -1,5 +1,6 @@
 """Attack and support modules."""
 
+from pegase.modules.aibreacher import AIBreacher
 from pegase.modules.base import Finding, Module, ModuleResult
 from pegase.modules.cloudstrike import CloudStrike
 from pegase.modules.mobilehunter import MobileHunter
@@ -17,6 +18,7 @@ __all__ = [
     "Finding",
     "Module",
     "ModuleResult",
+    "AIBreacher",
     "CloudStrike",
     "MobileHunter",
     "NetAssault",
@@ -47,5 +49,6 @@ def available_modules() -> dict[str, type[Module]]:
             ToolForge,
             VulnMatrix,
             PostXploit,
+            AIBreacher,
         )
     }

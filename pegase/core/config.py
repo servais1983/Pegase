@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     )
     max_concurrent_modules: int = Field(default=8)
 
+    # --- AI layer -----------------------------------------------------------
+    ai_provider: str = Field(
+        default="offline",
+        description="LLM backend: offline | anthropic | openai | ollama.",
+    )
+    ai_model: str = Field(default="", description="Model id (provider default when empty).")
+    ai_api_key: str = Field(default="", description="API key for cloud providers.")
+    ai_base_url: str = Field(default="", description="Override base URL (self-hosted / gateway).")
+    ai_jury_enabled: bool = Field(default=False, description="Enable multi-model finding jury.")
+    ai_max_tokens: int = Field(default=1024)
+    ai_timeout_seconds: float = Field(default=30.0)
+
     @field_validator("environment")
     @classmethod
     def _env_lower(cls, v: str) -> str:

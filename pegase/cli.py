@@ -111,6 +111,88 @@ def template_cmd(path: str) -> None:
     )
 
 
+@cli.group("ai")
+def ai_grp() -> None:
+    """PEGASE AI layer: advisor, module recommendation, providers."""
+
+
+@ai_grp.command("providers")
+def ai_providers_cmd() -> None:
+    """Show the available LLM providers and the active configuration."""
+    from pegase.ai.providers import available_providers, get_provider
+
+    settings = get_settings()
+    provider = get_provider(settings)
+    table = Table(title="AI providers")
+    table.add_column("Provider")
+    table.add_column("Active")
+    for name in available_providers():
+        active = "[green]yes[/green]" if name == provider.name else ""
+        table.add_row(name, active)
+    console.print(table)
+    console.print(
+        f"Configured: provider=[cyan]{settings.ai_provider}[/cyan] "
+        f"model=[cyan]{settings.ai_model or '(default)'}[/cyan] "
+        f"effective=[cyan]{provider.name}[/cyan] "
+        f"offline=[cyan]{provider.offline}[/cyan]"
+    )
+
+
+@ai_grp.command("advise")
+@click.argument("report", type=click.Path(exists=True, dir_okay=False))
+@click.option("--output", type=click.Path(), default=None, help="Write analysis JSON to file")
+def ai_advise_cmd(report: str, output: str | None) -> None:
+    """Run the grounded AI advisor over a JSON report/findings file."""
+    from pegase.ai.advisor import AIAdvisor
+
+    findings = _load_findings(report)
+    analysis = asyncio.run(AIAdvisor().analyze(findings))
+
+    console.print(f"[bold]Risk score:[/bold] {analysis.risk_score}/100 "
+                  f"(provider={analysis.provider}, llm_used={analysis.llm_used})")
+    console.print(f"[bold]Summary:[/bold] {analysis.executive_summary}\n")
+    table = Table(title=f"Prioritized risks ({len(analysis.prioritized_risks)})")
+    for col in ("Severity", "Risk", "Targets", "Remediation"):
+        table.add_column(col)
+    for r in analysis.prioritized_risks:
+        table.add_row(r.severity, r.title, ", ".join(r.targets[:3]), r.remediation[:60] + "...")
+    console.print(table)
+    console.print(f"\n[bold]Attack narrative:[/bold] {analysis.attack_narrative}")
+
+    if output:
+        with open(output, "w", encoding="utf-8") as fh:
+            json.dump(analysis.to_dict(), fh, indent=2, default=str)
+        console.print(f"wrote {output}")
+
+
+@ai_grp.command("recommend")
+@click.argument("report", type=click.Path(exists=True, dir_okay=False))
+@click.option("--target", "targets", multiple=True, help="Additional target context")
+def ai_recommend_cmd(report: str, targets: tuple[str, ...]) -> None:
+    """Recommend which modules to run next, based on findings so far."""
+    from pegase.ai.selection import recommend_modules
+
+    findings = _load_findings(report)
+    already = {f.get("module", "") for f in findings}
+    recs = recommend_modules(findings, list(targets), already_run=already)
+    table = Table(title=f"Recommended modules ({len(recs)})")
+    for col in ("Priority", "Module", "Reason", "Triggered by"):
+        table.add_column(col)
+    for r in recs:
+        table.add_row(str(r.priority), r.module, r.reason, ", ".join(r.triggered_by[:3]))
+    console.print(table)
+
+
+def _load_findings(path: str) -> list[dict]:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if isinstance(data, dict):
+        return data.get("findings", [])
+    if isinstance(data, list):
+        return data
+    return []
+
+
 @cli.command("scenarios")
 def scenarios_cmd() -> None:
     """List built-in ThreatSim scenarios."""
@@ -133,6 +215,7 @@ def scenarios_cmd() -> None:
 @click.option("--allow-active", is_flag=True, default=False)
 @click.option("--allow-exploit", is_flag=True, default=False)
 @click.option("--output", type=click.Path(), default=None, help="Write JSON report to file")
+@click.option("--ai", "ai_analyze", is_flag=True, default=False, help="Run the grounded AI advisor on the findings")
 def scan_cmd(
     targets: tuple[str, ...],
     modules: tuple[str, ...],
@@ -142,6 +225,7 @@ def scan_cmd(
     allow_active: bool,
     allow_exploit: bool,
     output: str | None,
+    ai_analyze: bool,
 ) -> None:
     """Run a one-off mission from the command line."""
     registry = available_modules()
@@ -196,6 +280,26 @@ def scan_cmd(
     console.print(table)
     if outcome.errors:
         console.print("[red]errors[/red]:", outcome.errors)
+
+    if ai_analyze:
+        from pegase.ai.advisor import AIAdvisor
+
+        findings_dicts = [
+            {
+                "module": f.module, "target": f.target, "title": f.title,
+                "description": f.description, "severity": f.severity,
+                "evidence": f.evidence, "references": f.references,
+            }
+            for f in outcome.findings
+        ]
+        analysis = asyncio.run(AIAdvisor().analyze(findings_dicts))
+        console.print(
+            f"\n[bold cyan]AI advisor[/bold cyan] (provider={analysis.provider}, "
+            f"llm_used={analysis.llm_used}) - risk {analysis.risk_score}/100"
+        )
+        console.print(analysis.executive_summary)
+        for r in analysis.prioritized_risks[:5]:
+            console.print(f"  [{r.severity}] {r.title} -> {r.remediation}")
 
     if output:
         with open(output, "w", encoding="utf-8") as fh:

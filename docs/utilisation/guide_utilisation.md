@@ -135,6 +135,7 @@ the opaque token, a hashed source IP and the user-agent - no recipient PII.
 | `physicalvector` | passive | `site`, `controls`, `observations`              |
 | `toolforge`      | active  | `tool` (allowlisted), `extra_tools`, `timeout`  |
 | `postxploit`     | passive | runs after producers; emits the attack graph    |
+| `aibreacher`     | active  | `endpoints`, `input_field`, `template` (`{PROMPT}`), `response_path`, `method`, `headers` |
 
 CloudStrike targets are `aws:<account-id>` and must be in scope; the module
 resolves the account from the supplied credentials and refuses to run against an
@@ -175,6 +176,41 @@ After a mission that includes `postxploit`, open `http://<host>/graph`, paste
 your JWT (from the dashboard login) and the mission id. The page renders the
 asset/pivot graph with D3, colour-coded by max severity. The raw graph is also
 available at `GET /api/v1/reports/{mission_id}/graph.json`.
+
+## AI/LLM endpoint red-teaming (AIBreacher)
+
+`aibreacher` tests an in-scope chat/LLM HTTP endpoint against the OWASP Top 10
+for LLM Applications with **benign, detection-only** probes: prompt injection
+(LLM01, via a random canary token) and system-prompt disclosure (LLM06). It
+never tries to make the model produce harmful content, records **redacted
+receipts**, and is scope-checked like every module.
+
+```bash
+pegase scan --target https://app.customer.example/chat \
+  --scenario llm-redteam --authorization RoE-001 --allow-active
+```
+
+Point it at the right request shape via mission `parameters.aibreacher`
+(`input_field`, or a `template` where `{PROMPT}` is replaced with the probe, and
+`response_path` to locate the reply text in a JSON response).
+
+## AI layer (advisor, selection, jury)
+
+PEGASE's AI layer turns findings into decision-ready output and is **offline and
+deterministic by default** (no API key required). Configure a provider with
+`PEGASE_AI_PROVIDER` + `PEGASE_AI_API_KEY` to add LLM-generated narratives, which
+are only kept after passing the anti-hallucination guardrail.
+
+```bash
+pegase ai providers                 # available providers + active config
+pegase ai advise report.json        # grounded risk analysis + remediation
+pegase ai recommend report.json     # recon-aware next-module suggestions
+pegase scan ... --ai                # inline advisor right after a scan
+```
+
+Over the API: `GET /api/v1/ai/missions/{id}/advise`,
+`.../recommend`, `.../jury`, and `?ai=true` on the JSON/HTML report endpoints to
+embed the advisor section. See [`docs/technique/ai_layer.md`](../technique/ai_layer.md).
 
 ## Audit log shipping (compliance)
 
