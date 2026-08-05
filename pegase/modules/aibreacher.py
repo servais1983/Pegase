@@ -1,12 +1,13 @@
-"""NeuroProbe - LLM / AI endpoint red-teaming (OWASP LLM Top 10).
+"""AIBreacher - LLM / AI endpoint red-teaming (OWASP LLM Top 10).
 
-NeuroProbe checks whether an in-scope chat / LLM HTTP endpoint is susceptible to
-app-layer weaknesses from the OWASP Top 10 for LLM Applications.
+AIBreacher checks whether an in-scope chat / LLM HTTP endpoint is susceptible to
+app-layer weaknesses from the OWASP Top 10 for LLM Applications. It is the
+AI-surface sibling of ``webbreacher``.
 
 Design constraints (matching PEGASE's safety model):
   * **Detection, not weaponization.** Probes plant a random *canary* token and
     observe whether the model reflects it, which is the standard safe way to
-    *detect* prompt-injection susceptibility. NeuroProbe never tries to make a
+    *detect* prompt-injection susceptibility. AIBreacher never tries to make a
     model produce harmful content.
   * **Non-destructive.** Read-only chat requests, no state change, no DoS.
   * **Authorization-gated.** Every request is ``ACTIVE`` and passes the
@@ -44,8 +45,8 @@ _SYSTEM_PROMPT_MARKERS = (
 OWASP_LLM = "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
 
 
-class NeuroProbe(Module):
-    name = "neuroprobe"
+class AIBreacher(Module):
+    name = "aibreacher"
     description = "LLM/AI endpoint red-teaming (OWASP LLM Top 10) - benign injection & leak detection."
     action_type = ActionType.ACTIVE
 

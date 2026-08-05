@@ -1,4 +1,4 @@
-"""PEGASE AI layer ("Neuro").
+"""PEGASE AI layer.
 
 PEGASE's own LLM-augmented intelligence layer, wired into the platform's
 existing safety model: multi-provider language models, a grounding /

@@ -1,4 +1,4 @@
-# AI layer ("Neuro")
+# AI layer
 
 PEGASE's AI layer (`pegase/ai/`) is an LLM-augmented intelligence layer wired
 into the platform's existing safety model. It is **offline-first**: the default
@@ -17,7 +17,7 @@ provider only *enriches* the output; it never becomes a dependency.
 3. **Never take the platform down.** A misconfigured provider, a missing key, or
    a failing API silently degrades to the offline engine.
 4. **Same safety envelope.** AI endpoints operate over already-collected,
-   scope-guarded findings; the red-team module (`neuroprobe`) is authorization-
+   scope-guarded findings; the red-team module (`aibreacher`) is authorization-
    gated like every other module.
 
 ## Components
@@ -60,9 +60,9 @@ pegase scan ... --ai                # inline advisor after a scan
 | `GET /api/v1/reports/{id}.json?ai=true` | Report with embedded advisor section |
 | `GET /api/v1/reports/{id}.html?ai=true` | HTML report with advisor section |
 
-## NeuroProbe (AI/LLM red-teaming)
+## AIBreacher (AI/LLM red-teaming)
 
-`neuroprobe` is an **active** module that checks an in-scope chat/LLM HTTP
+`aibreacher` is an **active** module that checks an in-scope chat/LLM HTTP
 endpoint against the OWASP Top 10 for LLM Applications, using **benign,
 non-destructive detection** only:
 
@@ -81,7 +81,7 @@ pegase scan --target https://app.example.com/chat \
   --scenario llm-redteam --authorization ROE-x --allow-active
 ```
 
-Module parameters (via mission `parameters.neuroprobe`):
+Module parameters (via mission `parameters.aibreacher`):
 
 | key | default | meaning |
 |-----|---------|---------|

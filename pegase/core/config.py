@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     )
     max_concurrent_modules: int = Field(default=8)
 
-    # --- AI / "Neuro" layer -------------------------------------------------
+    # --- AI layer -----------------------------------------------------------
     ai_provider: str = Field(
         default="offline",
         description="LLM backend: offline | anthropic | openai | ollama.",

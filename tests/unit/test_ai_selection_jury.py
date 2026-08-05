@@ -21,15 +21,15 @@ def test_recommend_web_and_correlators():
     assert "netassault" not in modules  # already run excluded
 
 
-def test_recommend_llm_endpoint_triggers_neuroprobe():
+def test_recommend_llm_endpoint_triggers_aibreacher():
     findings = [
         {"module": "webbreacher", "target": "https://api.example.com/v1/chat",
          "title": "Chat completion endpoint", "description": "assistant bot",
          "evidence": {}, "severity": "low"},
     ]
     recs = recommend_modules(findings, targets=[])
-    neuro = [r for r in recs if r.module == "neuroprobe"]
-    assert neuro and neuro[0].priority == 5
+    ai_rec = [r for r in recs if r.module == "aibreacher"]
+    assert ai_rec and ai_rec[0].priority == 5
 
 
 def test_recommend_priority_sorted():

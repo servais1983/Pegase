@@ -1,6 +1,6 @@
-"""Multi-provider LLM abstraction for PEGASE's AI layer ("Neuro").
+"""Multi-provider LLM abstraction for PEGASE's AI layer.
 
-PEGASE's "Neuro" layer speaks to any language model through one interface: every
+PEGASE's AI layer speaks to any language model through one interface: every
 provider implements a single async ``complete`` coroutine. The **default
 provider is fully offline and deterministic**, so the whole AI layer works - and
 is testable - with zero

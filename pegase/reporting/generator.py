@@ -90,7 +90,7 @@ def _ai_section_html(ai_analysis: dict[str, Any] | None) -> str:
     llm_used = ai_analysis.get("llm_used", False)
     return f"""
   <div class="ai">
-    <h2>AI advisor <span class="tag">Neuro</span></h2>
+    <h2>AI advisor <span class="tag">PEGASE AI</span></h2>
     <p class="meta">provider <code>{provider}</code>
        &middot; llm_used <code>{llm_used}</code>
        &middot; risk score <strong>{escape(str(ai_analysis.get('risk_score', 0)))}/100</strong></p>

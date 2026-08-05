@@ -94,7 +94,7 @@ _BUILTIN: dict[str, dict[str, Any]] = {
         "description": "AI/LLM endpoint red-teaming (OWASP LLM Top 10) + impact modelling.",
         "stages": [
             {"name": "recon", "modules": ["recon"]},
-            {"name": "probe", "modules": ["neuroprobe"]},
+            {"name": "probe", "modules": ["aibreacher"]},
             {"name": "model", "modules": ["postxploit"]},
         ],
     },

@@ -113,7 +113,7 @@ def template_cmd(path: str) -> None:
 
 @cli.group("ai")
 def ai_grp() -> None:
-    """AI ("Neuro") layer: advisor, module recommendation, providers."""
+    """PEGASE AI layer: advisor, module recommendation, providers."""
 
 
 @ai_grp.command("providers")

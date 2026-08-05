@@ -36,7 +36,7 @@ _SIGNALS: list[tuple[re.Pattern[str], str, int, str]] = [
     (re.compile(r"\b(s3|bucket|aws|gcp|azure|iam|cloud|storage)\b", re.I),
      "cloudstrike", 4, "Cloud footprint observed - review posture and identity."),
     (re.compile(r"\b(chat|/v1/|completion|prompt|assistant|llm|openai|gpt|bot)\b", re.I),
-     "neuroprobe", 5, "LLM/chat endpoint observed - test for prompt injection."),
+     "aibreacher", 5, "LLM/chat endpoint observed - test for prompt injection."),
     (re.compile(r"\b(apk|android|ios|mobile|play\.google|itunes)\b", re.I),
      "mobilehunter", 3, "Mobile artifact observed - inspect the app."),
     (re.compile(r"\b(email|@|employee|linkedin|staff|phish)\b", re.I),

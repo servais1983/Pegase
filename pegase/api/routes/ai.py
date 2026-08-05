@@ -1,4 +1,4 @@
-"""AI ("Neuro") routes - grounded advisor, module recommendation, jury.
+"""PEGASE AI routes - grounded advisor, module recommendation, jury.
 
 These endpoints operate over a mission's stored findings. They never touch a
 target, so they only require an authenticated user (not an authorization token);

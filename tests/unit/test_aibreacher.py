@@ -1,4 +1,4 @@
-"""Tests for the NeuroProbe LLM red-teaming module (benign detection)."""
+"""Tests for the AIBreacher LLM red-teaming module (benign detection)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from pegase.core.scope import ActionType, Scope, ScopeGuard, ScopeRule, ScopeViolation
-from pegase.modules.neuroprobe import NeuroProbe
+from pegase.modules.aibreacher import AIBreacher
 
 
 def _guard(*patterns, actions=None):
@@ -26,7 +26,7 @@ def _client(handler) -> httpx.AsyncClient:
 
 
 @pytest.mark.asyncio
-async def test_neuroprobe_detects_prompt_injection():
+async def test_aibreacher_detects_prompt_injection():
     def handler(request: httpx.Request) -> httpx.Response:
         body = request.content.decode()
         # A vulnerable endpoint echoes the injected canary back.
@@ -39,7 +39,7 @@ async def test_neuroprobe_detects_prompt_injection():
         return httpx.Response(200, json={"reply": "I only help with cooking."})
 
     client = _client(handler)
-    result = await NeuroProbe().run(
+    result = await AIBreacher().run(
         targets=["https://api.example.com/chat"],
         guard=_guard("api.example.com"),
         parameters={"input_field": "message", "response_path": "reply", "_http_client": client},
@@ -52,12 +52,12 @@ async def test_neuroprobe_detects_prompt_injection():
 
 
 @pytest.mark.asyncio
-async def test_neuroprobe_resistant_endpoint_reports_info():
+async def test_aibreacher_resistant_endpoint_reports_info():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"reply": "I cannot comply with that request."})
 
     client = _client(handler)
-    result = await NeuroProbe().run(
+    result = await AIBreacher().run(
         targets=["https://api.example.com/chat"],
         guard=_guard("api.example.com"),
         parameters={"response_path": "reply", "_http_client": client},
@@ -71,7 +71,7 @@ async def test_neuroprobe_resistant_endpoint_reports_info():
 
 
 @pytest.mark.asyncio
-async def test_neuroprobe_detects_system_prompt_leak():
+async def test_aibreacher_detects_system_prompt_leak():
     def handler(request: httpx.Request) -> httpx.Response:
         body = request.content.decode().lower()
         if "repeat the instructions" in body:
@@ -81,7 +81,7 @@ async def test_neuroprobe_detects_system_prompt_leak():
         return httpx.Response(200, json={"reply": "ok"})
 
     client = _client(handler)
-    result = await NeuroProbe().run(
+    result = await AIBreacher().run(
         targets=["https://api.example.com/chat"],
         guard=_guard("api.example.com"),
         parameters={"response_path": "reply", "_http_client": client},
@@ -92,10 +92,10 @@ async def test_neuroprobe_detects_system_prompt_leak():
 
 
 @pytest.mark.asyncio
-async def test_neuroprobe_respects_scope():
+async def test_aibreacher_respects_scope():
     client = _client(lambda r: httpx.Response(200, json={"reply": "ok"}))
     with pytest.raises(ScopeViolation):
-        await NeuroProbe().run(
+        await AIBreacher().run(
             targets=["https://evil.out-of-scope.com/chat"],
             guard=_guard("api.example.com"),
             parameters={"_http_client": client},
@@ -104,7 +104,7 @@ async def test_neuroprobe_respects_scope():
 
 
 @pytest.mark.asyncio
-async def test_neuroprobe_custom_template():
+async def test_aibreacher_custom_template():
     seen = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -113,7 +113,7 @@ async def test_neuroprobe_custom_template():
         return httpx.Response(200, json={"choices": [{"text": "no"}]})
 
     client = _client(handler)
-    await NeuroProbe().run(
+    await AIBreacher().run(
         targets=["https://api.example.com/v1/completions"],
         guard=_guard("api.example.com"),
         parameters={

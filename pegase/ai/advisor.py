@@ -247,7 +247,7 @@ def _attack_narrative(findings: list[dict[str, Any]]) -> str:
     recon = [f for f in findings if f["module"] in ("recon", "socialmatrix")]
     surface = [f for f in findings if f["module"] in ("netassault", "webbreacher",
                                                        "cloudstrike", "wirelessphantom",
-                                                       "mobilehunter", "neuroprobe")]
+                                                       "mobilehunter", "aibreacher")]
     weakness = [f for f in findings if f["module"] in ("vulnmatrix",)]
     modeled = [f for f in findings if f["module"] in ("postxploit", "physicalvector")]
 

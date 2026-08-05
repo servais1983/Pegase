@@ -23,8 +23,8 @@ hash-chained audit log, and a REST API + CLI.
 | Layer        | Implementation                                                                                                    |
 |--------------|-------------------------------------------------------------------------------------------------------------------|
 | Core         | Mission orchestrator, async runtime, JWT auth, hash-chained audit log, RoE / scope guard.                          |
-| Modules      | 12 modules: `recon`, `netassault`, `webbreacher`, `socialmatrix`, `cloudstrike`, `mobilehunter`, `wirelessphantom`, `physicalvector`, `toolforge`, `vulnmatrix`, `postxploit`, `neuroprobe`. |
-| AI (Neuro)   | LLM-augmented intelligence layer: grounded findings advisor (risk score, prioritized risks + remediation, attack narrative), recon-aware module selection, multi-model validation jury, and an anti-hallucination guardrail ("no claim without a receipt"). Multi-provider (offline / Anthropic / OpenAI / Ollama); **fully deterministic and offline by default** — no keys, nothing leaves the host. |
+| Modules      | 12 modules: `recon`, `netassault`, `webbreacher`, `socialmatrix`, `cloudstrike`, `mobilehunter`, `wirelessphantom`, `physicalvector`, `toolforge`, `vulnmatrix`, `postxploit`, `aibreacher`. |
+| AI           | LLM-augmented intelligence layer: grounded findings advisor (risk score, prioritized risks + remediation, attack narrative), recon-aware module selection, multi-model validation jury, and an anti-hallucination guardrail ("no claim without a receipt"). Multi-provider (offline / Anthropic / OpenAI / Ollama); **fully deterministic and offline by default** — no keys, nothing leaves the host. |
 | Scenarios    | ThreatSim engine: named multi-stage kill-chains (`recon-and-enumerate`, `external-apt`, `cloud-review`, `llm-redteam`) + custom YAML. |
 | Auth         | JWT access + refresh tokens, `/auth/refresh`, `/auth/logout` with Redis-backed revocation (jti blocklist). |
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
@@ -135,11 +135,11 @@ pegase scan \
             │  cloudstrike · mobilehunter      │
             │  wirelessphantom · physicalvector│
             │  toolforge · vulnmatrix          │
-            │  postxploit (graph) · neuroprobe │
+            │  postxploit (graph) · aibreacher │
             └──────────────┬───────────────────┘
                            │ findings
             ┌──────────────▼───────────────────┐
-            │      AI layer ("Neuro")          │
+            │          AI layer                │
             │  advisor · module selection ·    │
             │  jury · grounding guardrail      │
             │  (offline default, LLM-optional) │
@@ -173,14 +173,14 @@ Detailed design notes live in [`docs/architecture/architecture_globale.md`](docs
 | `toolforge`   | active   | Runs **allowlisted** third-party CLI tools (nuclei, nikto, whatweb, testssl, ...) with `{target}` substitution and `shell=False` - no command-injection surface. Every target is scope-checked. |
 | `vulnmatrix`  | passive  | Correlates banners/fingerprints from upstream findings against a curated list of known-vulnerable versions; optional NVD CVE lookup. Runs **after** producers (`needs_upstream_findings`). |
 | `postxploit`  | passive  | Consumer module that synthesises all findings into an attack-path graph (assets + pivot edges), rendered with D3 at `/graph` and served by `/api/v1/reports/{id}/graph.json`. |
-| `neuroprobe`  | active   | AI/LLM endpoint red-teaming (OWASP Top 10 for LLM Applications). Sends **benign, non-destructive** probes to an in-scope chat/LLM HTTP endpoint to *detect* prompt injection (LLM01, via a random canary token) and system-prompt disclosure (LLM06). Detection-only, redacted receipts, scope-checked like every module. |
+| `aibreacher`  | active   | AI/LLM endpoint red-teaming (OWASP Top 10 for LLM Applications) — the AI-surface sibling of `webbreacher`. Sends **benign, non-destructive** probes to an in-scope chat/LLM HTTP endpoint to *detect* prompt injection (LLM01, via a random canary token) and system-prompt disclosure (LLM06). Detection-only, redacted receipts, scope-checked like every module. |
 
 Modules conform to a single ABC (`pegase.modules.base.Module`) so adding a new
 one is a single file + an entry in `available_modules()`.
 
 ---
 
-## AI layer ("Neuro")
+## AI layer
 
 PEGASE ships its own LLM-augmented intelligence layer (`pegase/ai/`). It turns
 raw findings into decision-ready output **without inheriting LLM hallucination
@@ -198,7 +198,7 @@ risk** — and it works with zero API keys.
   model-free, so the guardrail can never itself hallucinate.
 * **Recon-aware selection** (`recommend_modules`) — suggests which modules to
   run next based on what recon actually observed, with a reason and priority
-  (e.g. a chat endpoint triggers `neuroprobe`; open web ports trigger
+  (e.g. a chat endpoint triggers `aibreacher`; open web ports trigger
   `webbreacher`).
 * **Multi-model jury** (`Jury`) — validates a finding with a panel of models; a
   deterministic, evidence-only juror is always on the panel, so confidence is
@@ -263,7 +263,7 @@ ruff check pegase tests
 pytest                      # 71 unit tests (scope, audit, auth+refresh+revocation,
                             #   orchestrator chaining, all modules, scenarios,
                             #   AI layer: grounding, advisor, selection, jury,
-                            #   neuroprobe, API routes + worker pipeline on SQLite)
+                            #   aibreacher, API routes + worker pipeline on SQLite)
 pytest -m integration       # needs Postgres + Redis on localhost
 ```
 
@@ -289,9 +289,9 @@ plus the attack-graph view. Delivered:
 * ✅ ToolForge — allowlisted third-party tool integration.
 * ✅ PostXploit — attack-path graph builder + D3 visualization.
 * ✅ ThreatSim — multi-stage scenario engine.
-* ✅ AI layer ("Neuro") — grounded advisor, recon-aware module selection,
-  multi-model jury, anti-hallucination guardrail (offline-first, LLM-optional).
-* ✅ NeuroProbe — AI/LLM endpoint red-teaming (OWASP LLM Top 10, benign detection).
+* ✅ AI layer — grounded advisor, recon-aware module selection, multi-model
+  jury, anti-hallucination guardrail (offline-first, LLM-optional).
+* ✅ AIBreacher — AI/LLM endpoint red-teaming (OWASP LLM Top 10, benign detection).
 
 Still on the horizon:
 
