@@ -21,13 +21,15 @@ Le noyau central de PEGASE est responsable de l'orchestration globale, de la coo
   - Chiffrement des communications internes
   - Journalisation immuable des actions
 
-#### 1.3 Moteur d'IA Stratégique
-- **Fonction** : Analyse globale et prise de décision stratégique
+#### 1.3 Moteur d'IA Stratégique (couche `pegase/ai/`)
+- **Fonction** : Analyse globale, priorisation et augmentation par LLM
+- **Statut** : **implémenté** — couche IA native de PEGASE, multi-provider (offline par défaut / Anthropic / OpenAI / Ollama), **fonctionnelle sans clé API et hors-ligne**
 - **Caractéristiques** :
-  - Modèles de machine learning pour l'analyse de topologie
-  - Algorithmes de planification d'attaque
-  - Systèmes de priorisation des cibles
-  - Adaptation dynamique de la stratégie
+  - Advisor ancré : score de risque, risques priorisés + remédiations, narration de la chaîne d'attaque, résumé exécutif
+  - Garde-fou anti-hallucination (« no claim without a receipt ») : chaque phrase issue d'un LLM doit référencer une découverte réelle, sinon elle est rejetée
+  - Sélection recon-aware : recommande les prochains modules selon ce que la reconnaissance a réellement observé
+  - Jury multi-modèles : validation d'une découverte avec un juré déterministe basé sur les preuves toujours présent
+  - Dégradation silencieuse en mode offline si un provider cloud n'a pas de clé — la plateforme ne peut jamais tomber à cause de l'IA
 
 #### 1.4 Gestionnaire de Contraintes Légales
 - **Fonction** : Assure le respect du cadre légal et des limites du mandat
@@ -100,6 +102,16 @@ Le noyau central de PEGASE est responsable de l'orchestration globale, de la coo
   - Simulateur d'interception de communications
   - Testeur de réseaux isolés (air-gapped)
   - Détecteur de signaux non autorisés
+
+### 2.8 Module d'Attaque IA/LLM (AIBreacher)
+- **Fonction** : Red-teaming des endpoints d'IA / LLM (OWASP Top 10 for LLM Applications)
+- **Sous-composants** :
+  - Sonde d'injection de prompt (LLM01) par jeton canari aléatoire
+  - Détecteur de divulgation du prompt système (LLM06)
+  - Sondes **bénignes et non destructives** : détection uniquement, jamais de génération de contenu nuisible
+  - Preuves rédigées (on enregistre le déclenchement, pas la réponse sensible du modèle)
+  - Contrôle de périmètre (`ScopeGuard`) et action `ACTIVE` comme tout module
+- **Positionnement** : pendant « surface IA » de WebBreacher, pour les applications qui exposent un modèle de langage.
 
 ## 3. Modules de Support et d'Analyse
 

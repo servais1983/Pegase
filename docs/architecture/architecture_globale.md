@@ -157,12 +157,12 @@ L'architecture permet une mise à l'échelle horizontale des composants selon le
 - Journalisation sécurisée des opérations
 - Mécanismes d'arrêt d'urgence
 
-#### 2.3 Moteur d'IA Stratégique
-- Analyse globale de la topologie cible
-- Planification stratégique des attaques
-- Adaptation dynamique des stratégies
-- Priorisation des cibles et des vecteurs
-- Analyse prédictive des défenses
+#### 2.3 Moteur d'IA Stratégique (couche `pegase/ai/`, implémentée)
+- Advisor ancré : score de risque, risques priorisés + remédiations, narration de la chaîne d'attaque
+- Sélection recon-aware des prochains modules à exécuter
+- Jury multi-modèles pour la validation des découvertes
+- Garde-fou anti-hallucination (« no claim without a receipt »)
+- Multi-provider (offline par défaut / Anthropic / OpenAI / Ollama), fonctionnel sans clé et hors-ligne
 
 #### 2.4 Bus d'Information
 - Communication entre les modules
