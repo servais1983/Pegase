@@ -19,11 +19,11 @@ import ipaddress
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from urllib.parse import urlparse
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     PASSIVE = "passive"  # OSINT, DNS, whois - never touches target
     ACTIVE = "active"  # nmap, http GET, banner grab - touches but doesn't exploit
     EXPLOIT = "exploit"  # actual exploitation - requires explicit allow

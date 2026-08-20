@@ -31,7 +31,7 @@ hash-chained audit log, and a REST API + CLI.
 | Async work   | Celery workers backed by Redis.                                                                                    |
 | API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
 | CLI          | `pegase` (click + rich) - scan (with `--ai`), scenarios, template, modules, audit verify, user management, `ai advise` / `ai recommend` / `ai providers`. |
-| Reporting    | JSON and stand-alone HTML reports per mission.                                                                     |
+| Reporting    | Per-mission reports in four formats: JSON, stand-alone HTML, **SARIF 2.1.0** (GitHub code scanning / SARIF viewers) and **CSV** (spreadsheet triage). |
 | Observability| `/healthz`, `/readyz`, `/metrics` (Prometheus), structured JSON logs (`structlog`).                                 |
 | Deployment   | Multi-stage Dockerfile, non-root runtime, healthchecks; `docker compose up` brings up the full stack (postgres + redis + api + worker + nginx reverse proxy). Helm chart in `helm/pegase/` for Kubernetes. |
 | CI           | GitHub Actions: ruff, mypy, pytest + coverage against real Postgres/Redis, Docker build, CodeQL. Pre-commit config bundled.                          |
@@ -88,9 +88,11 @@ curl -X POST http://localhost:8000/api/v1/missions/$MISSION/run \
   -H 'content-type: application/json' \
   -d '{"modules": ["recon", "netassault", "webbreacher", "vulnmatrix"]}'
 
-# 3) read the report
+# 3) read the report (json | html | sarif | csv)
 curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8000/api/v1/reports/$MISSION.html > report.html
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/reports/$MISSION.sarif > report.sarif  # upload to GitHub code scanning
 ```
 
 Same thing from the CLI (no API needed):
@@ -101,7 +103,7 @@ pegase scan \
   --module recon --module webbreacher \
   --authorization "ROE-public-scanme.nmap.org" \
   --allow-active \
-  --output report.json
+  --output report.sarif --format sarif   # or: --format json | csv
 ```
 
 ---

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from sqlalchemy import (
     JSON,
@@ -33,7 +33,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class MissionStatus(str, Enum):
+class MissionStatus(StrEnum):
     DRAFT = "draft"
     AUTHORIZED = "authorized"
     RUNNING = "running"
@@ -42,7 +42,7 @@ class MissionStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     INFO = "info"
     LOW = "low"
     MEDIUM = "medium"

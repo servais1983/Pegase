@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pegase.api.deps import current_user
 from pegase.db.models import Finding, Mission, User
 from pegase.db.session import get_session
-from pegase.reporting.generator import build_html_report, build_json_report
+from pegase.reporting.generator import (
+    build_csv_report,
+    build_html_report,
+    build_json_report,
+    build_sarif_report,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -43,6 +48,59 @@ async def json_report(
     )
     analysis = await _maybe_ai_analysis(ai, findings)
     return JSONResponse(build_json_report(mission, findings, analysis))
+
+
+@router.get("/{mission_id}.sarif")
+async def sarif_report(
+    mission_id: str,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    """Export findings as a SARIF 2.1.0 log (GitHub code scanning / viewers)."""
+    mission = await db.get(Mission, mission_id)
+    if not mission:
+        raise HTTPException(404, "mission not found")
+    findings = list(
+        await db.scalars(
+            select(Finding)
+            .where(Finding.mission_id == mission_id)
+            .order_by(Finding.severity)
+        )
+    )
+    sarif = build_sarif_report(findings, mission_name=mission.name)
+    return JSONResponse(
+        sarif,
+        media_type="application/sarif+json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{mission_id}.sarif"'
+        },
+    )
+
+
+@router.get("/{mission_id}.csv", response_class=PlainTextResponse)
+async def csv_report(
+    mission_id: str,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_session),
+) -> PlainTextResponse:
+    """Export findings as CSV for spreadsheet triage."""
+    mission = await db.get(Mission, mission_id)
+    if not mission:
+        raise HTTPException(404, "mission not found")
+    findings = list(
+        await db.scalars(
+            select(Finding)
+            .where(Finding.mission_id == mission_id)
+            .order_by(Finding.severity)
+        )
+    )
+    return PlainTextResponse(
+        build_csv_report(findings),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{mission_id}.csv"'
+        },
+    )
 
 
 @router.get("/{mission_id}/graph.json")

@@ -185,3 +185,171 @@ def build_html_report(
   </table>
 </body>
 </html>"""
+
+
+# --------------------------------------------------------------------------- #
+# Interchange exports: SARIF 2.1.0 and CSV.
+#
+# These builders operate on *plain finding dicts* (keys: module, target, title,
+# description, severity, evidence, references) so they can be driven both from
+# the API (DB-backed ``Finding`` rows) and from the CLI (in-memory findings).
+# --------------------------------------------------------------------------- #
+
+# GitHub code scanning reads ``security-severity`` (0.0-10.0) to bucket alerts.
+SEVERITY_SECURITY_SCORE = {
+    "info": "0.0",
+    "low": "2.0",
+    "medium": "5.5",
+    "high": "8.0",
+    "critical": "9.5",
+}
+# SARIF result levels are a fixed enum: none | note | warning | error.
+SEVERITY_SARIF_LEVEL = {
+    "info": "note",
+    "low": "note",
+    "medium": "warning",
+    "high": "error",
+    "critical": "error",
+}
+
+_TOOL_INFO_URI = "https://github.com/servais1983/Pegase"
+
+
+def _finding_dicts(findings: list[Any]) -> list[dict[str, Any]]:
+    """Normalise DB/dataclass findings (or dicts) to plain dicts."""
+    out: list[dict[str, Any]] = []
+    for f in findings:
+        if isinstance(f, dict):
+            sev = f.get("severity", "info")
+            out.append(
+                {
+                    "module": f.get("module", ""),
+                    "target": f.get("target", ""),
+                    "title": f.get("title", ""),
+                    "description": f.get("description", ""),
+                    "severity": sev.value if hasattr(sev, "value") else str(sev),
+                    "evidence": f.get("evidence") or {},
+                    "references": f.get("references") or [],
+                }
+            )
+        else:
+            out.append(
+                {
+                    "module": f.module,
+                    "target": f.target,
+                    "title": f.title,
+                    "description": f.description,
+                    "severity": _sev(f),
+                    "evidence": f.evidence or {},
+                    "references": list(f.references or []),
+                }
+            )
+    return out
+
+
+def build_sarif_report(
+    findings: list[Any],
+    *,
+    tool_version: str = "0.1.0",
+    mission_name: str | None = None,
+) -> dict[str, Any]:
+    """Build a SARIF 2.1.0 log from PEGASE findings.
+
+    One SARIF *rule* is emitted per PEGASE module (the ``ruleId`` is
+    ``pegase/<module>``), and one *result* per finding. Severity is carried
+    both as a SARIF ``level`` and, for GitHub code scanning, as a
+    ``security-severity`` rule property.
+    """
+    norm = _finding_dicts(findings)
+
+    rules: dict[str, dict[str, Any]] = {}
+    results: list[dict[str, Any]] = []
+    for f in norm:
+        module = f["module"] or "pegase"
+        sev = f["severity"] if f["severity"] in SEVERITY_SARIF_LEVEL else "info"
+        rule_id = f"pegase/{module}"
+        # Register the rule once, keeping the highest severity seen for it.
+        rule = rules.get(rule_id)
+        if rule is None:
+            rule = {
+                "id": rule_id,
+                "name": module,
+                "shortDescription": {"text": f"PEGASE {module} finding"},
+                "helpUri": _TOOL_INFO_URI,
+                "properties": {
+                    "tags": ["security", "pegase", module],
+                    "security-severity": SEVERITY_SECURITY_SCORE.get(sev, "0.0"),
+                },
+            }
+            rules[rule_id] = rule
+        else:
+            # Promote the rule's advertised security-severity if this finding
+            # is more severe than any previously recorded for the module.
+            cur = float(rule["properties"]["security-severity"])
+            new = float(SEVERITY_SECURITY_SCORE.get(sev, "0.0"))
+            if new > cur:
+                rule["properties"]["security-severity"] = SEVERITY_SECURITY_SCORE[sev]
+
+        message = f["title"]
+        if f["description"]:
+            message = f"{f['title']}\n\n{f['description']}"
+
+        result: dict[str, Any] = {
+            "ruleId": rule_id,
+            "level": SEVERITY_SARIF_LEVEL.get(sev, "note"),
+            "message": {"text": message},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f["target"] or "unknown"}
+                    }
+                }
+            ],
+            "properties": {
+                "severity": sev,
+                "module": module,
+                "references": f["references"],
+            },
+        }
+        results.append(result)
+
+    driver: dict[str, Any] = {
+        "name": "PEGASE",
+        "version": tool_version,
+        "informationUri": _TOOL_INFO_URI,
+        "rules": list(rules.values()),
+    }
+    run: dict[str, Any] = {"tool": {"driver": driver}, "results": results}
+    if mission_name:
+        run["properties"] = {"mission": mission_name}
+
+    return {
+        "version": "2.1.0",
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [run],
+    }
+
+
+def build_csv_report(findings: list[Any]) -> str:
+    """Serialise findings to CSV (severity-sorted, RFC-4180 quoting)."""
+    import csv
+    import io
+
+    norm = _finding_dicts(findings)
+    norm.sort(key=lambda f: -SEVERITY_RANK.get(f["severity"], 0))
+
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(["severity", "module", "target", "title", "description", "references"])
+    for f in norm:
+        writer.writerow(
+            [
+                f["severity"],
+                f["module"],
+                f["target"],
+                f["title"],
+                f["description"],
+                " ".join(f["references"]),
+            ]
+        )
+    return buf.getvalue()

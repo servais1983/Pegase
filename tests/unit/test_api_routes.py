@@ -163,3 +163,46 @@ async def test_system_endpoints(client):
         assert r.status_code == 200
         names = {m["name"] for m in r.json()["modules"]}
         assert {"recon", "netassault", "webbreacher", "vulnmatrix", "socialmatrix"} <= names
+
+
+@pytest.mark.asyncio
+async def test_sarif_and_csv_report_endpoints(client):
+    async with client as c:
+        r = await c.post(
+            "/api/v1/auth/token",
+            data={"username": "admin", "password": "adminpass-strong-12345"},
+        )
+        token = r.json()["access_token"]
+        h = {"Authorization": f"Bearer {token}"}
+
+        r = await c.post(
+            "/api/v1/missions",
+            json={
+                "name": "export-1",
+                "targets": ["scanme.nmap.org"],
+                "scope_rules": [{"pattern": "scanme.nmap.org"}],
+                "authorization_token": "RoE-001",
+            },
+            headers=h,
+        )
+        mid = r.json()["id"]
+
+        # SARIF export of an empty mission is still a valid 2.1.0 log.
+        r = await c.get(f"/api/v1/reports/{mid}.sarif", headers=h)
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("application/sarif+json")
+        body = r.json()
+        assert body["version"] == "2.1.0"
+        assert body["runs"][0]["tool"]["driver"]["name"] == "PEGASE"
+
+        # CSV export returns the header row.
+        r = await c.get(f"/api/v1/reports/{mid}.csv", headers=h)
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("text/csv")
+        assert r.text.splitlines()[0] == (
+            "severity,module,target,title,description,references"
+        )
+
+        # Unknown mission -> 404 on both.
+        assert (await c.get("/api/v1/reports/nope.sarif", headers=h)).status_code == 404
+        assert (await c.get("/api/v1/reports/nope.csv", headers=h)).status_code == 404

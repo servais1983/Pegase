@@ -214,7 +214,14 @@ def scenarios_cmd() -> None:
 @click.option("--authorization", required=True, help="Authorization token / RoE reference")
 @click.option("--allow-active", is_flag=True, default=False)
 @click.option("--allow-exploit", is_flag=True, default=False)
-@click.option("--output", type=click.Path(), default=None, help="Write JSON report to file")
+@click.option("--output", type=click.Path(), default=None, help="Write the report to file")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "sarif", "csv"]),
+    default="json",
+    help="Format for --output (json | sarif | csv)",
+)
 @click.option("--ai", "ai_analyze", is_flag=True, default=False, help="Run the grounded AI advisor on the findings")
 def scan_cmd(
     targets: tuple[str, ...],
@@ -225,6 +232,7 @@ def scan_cmd(
     allow_active: bool,
     allow_exploit: bool,
     output: str | None,
+    output_format: str,
     ai_analyze: bool,
 ) -> None:
     """Run a one-off mission from the command line."""
@@ -303,28 +311,44 @@ def scan_cmd(
 
     if output:
         with open(output, "w", encoding="utf-8") as fh:
-            json.dump(
-                {
-                    "mission_id": outcome.mission_id,
-                    "errors": outcome.errors,
-                    "findings": [
-                        {
-                            "module": f.module,
-                            "target": f.target,
-                            "title": f.title,
-                            "description": f.description,
-                            "severity": f.severity,
-                            "evidence": f.evidence,
-                            "references": f.references,
-                        }
-                        for f in outcome.findings
-                    ],
-                },
-                fh,
-                indent=2,
-                default=str,
-            )
-        console.print(f"wrote {output}")
+            if output_format == "sarif":
+                from pegase.reporting.generator import build_sarif_report
+
+                json.dump(
+                    build_sarif_report(
+                        list(outcome.findings), mission_name=outcome.mission_id
+                    ),
+                    fh,
+                    indent=2,
+                    default=str,
+                )
+            elif output_format == "csv":
+                from pegase.reporting.generator import build_csv_report
+
+                fh.write(build_csv_report(list(outcome.findings)))
+            else:
+                json.dump(
+                    {
+                        "mission_id": outcome.mission_id,
+                        "errors": outcome.errors,
+                        "findings": [
+                            {
+                                "module": f.module,
+                                "target": f.target,
+                                "title": f.title,
+                                "description": f.description,
+                                "severity": f.severity,
+                                "evidence": f.evidence,
+                                "references": f.references,
+                            }
+                            for f in outcome.findings
+                        ],
+                    },
+                    fh,
+                    indent=2,
+                    default=str,
+                )
+        console.print(f"wrote {output} ({output_format})")
 
 
 if __name__ == "__main__":
