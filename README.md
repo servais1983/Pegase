@@ -30,6 +30,7 @@ hash-chained audit log, and a REST API + CLI.
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
 | Async work   | Celery workers backed by Redis.                                                                                    |
 | API / UI     | FastAPI REST (`/api/v1/...`), OpenAPI at `/docs`, dashboard at `/`.                                                |
+| MCP          | `pegase-mcp` Model Context Protocol server: exposes PEGASE to AI agents (Claude, PentAGI, ...) as a **governed** toolset — every agent action is RoE-gated, least-privilege by default, scope-revalidated and audit-logged. |
 | CLI          | `pegase` (click + rich) - scan (with `--ai`), scenarios, template, modules, audit verify, user management, `ai advise` / `ai recommend` / `ai providers`. |
 | Reporting    | Per-mission reports in four formats: JSON, stand-alone HTML, **SARIF 2.1.0** (GitHub code scanning / SARIF viewers) and **CSV** (spreadsheet triage). |
 | Observability| `/healthz`, `/readyz`, `/metrics` (Prometheus), structured JSON logs (`structlog`).                                 |
@@ -235,6 +236,40 @@ To enable an LLM backend, set `PEGASE_AI_PROVIDER` + `PEGASE_AI_API_KEY` (see
 [`.env.example`](.env.example)). The official SDKs are an optional extra:
 `pip install -e ".[ai]"` (not required — cloud providers are reached over the
 existing `httpx` dependency).
+
+---
+
+## MCP server — governed autonomy for AI agents
+
+Autonomous offensive-AI tools (raw MCP tool-bridges, multi-agent pentesters)
+are powerful but ungoverned: they will happily act with no authorization,
+no scope enforcement and no audit trail. PEGASE exposes its capabilities to the
+same agents (Claude, or an orchestrator such as PentAGI) as a **Model Context
+Protocol server — but every action stays inside the guardrails.**
+
+```bash
+pip install -e ".[mcp]"
+pegase-mcp                 # stdio MCP server  (or: python -m pegase.mcp)
+```
+
+Tools published to the agent: `list_modules`, `list_scenarios`, `run_scan`,
+`run_scenario`, `advise`, `verify_audit`. Every call is:
+
+* **RoE-gated** — a mission with no `authorization` token is *denied*, and the
+  denial is written to the audit log. The agent cannot opt out.
+* **Least-privilege by default** — actions are **passive** unless the call
+  explicitly sets `allow_active` / `allow_exploit`. An out-of-control agent
+  gets the safest posture automatically.
+* **Scope-revalidated** — every target the agent supplies is re-checked against
+  the scope guard, so a caller can never widen the engagement.
+* **Audited as agent-initiated** — each request is recorded as
+  `mcp.tool.invoked` (tagged `initiator: ai-agent`) *before* it runs, so a
+  later auditor sees exactly what the model asked for. `verify_audit` proves the
+  chain has not been tampered with.
+
+The result: *the agent does the thinking; PEGASE keeps it legal, scoped and
+auditable.* The MCP SDK is an optional dependency and typically runs as its own
+process, so it never affects the API/worker deployment.
 
 ---
 
