@@ -85,6 +85,11 @@ class Mission(Base):
         JSON, default=lambda: ["passive", "active"]
     )
     parameters: Mapped[dict] = mapped_column(JSON, default=dict)
+    #: Round-by-round summary of the most recent AutoPilot run (see
+    #: ``pegase.core.autopilot.AutoPilotOutcome.to_dict()``, findings omitted
+    #: since those are already persisted in the ``findings`` table). ``None``
+    #: when the mission has never been run through AutoPilot.
+    autopilot_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     authorization_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     starts_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

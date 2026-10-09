@@ -32,6 +32,7 @@
             <th>Client</th>
             <th>Status</th>
             <th>Targets</th>
+            <th>AutoPilot</th>
             <th>Created</th>
             <th></th>
           </tr>
@@ -45,6 +46,15 @@
               {{ m.status.value if m.status.value is defined else m.status }}
             </span></td>
             <td>{{ m.targets|length }}</td>
+            <td>
+              {% if m.autopilot_state %}
+                <a href="#" class="watch-autopilot" data-mission-id="{{ m.id }}" data-mission-name="{{ m.name }}">
+                  {{ m.autopilot_state.rounds|length }} round(s)
+                </a>
+              {% else %}
+                <span class="muted">-</span>
+              {% endif %}
+            </td>
             <td>{{ m.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
             <td>
               <a href="/api/v1/reports/{{ m.id }}.html" target="_blank">HTML</a>
@@ -53,10 +63,23 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="6">No missions yet. Create one via the API or the CLI.</td></tr>
+          <tr><td colspan="7">No missions yet. Create one via the API or the CLI.</td></tr>
         {% endfor %}
         </tbody>
       </table>
+    </section>
+
+    <section id="autopilot-panel" class="hidden" aria-live="polite">
+      <h2>AutoPilot run — <span id="autopilot-panel-title"></span></h2>
+      <p class="muted">
+        Each round is the evidence-driven planner's own choice, not an LLM's -
+        see <a href="https://github.com/servais1983/Pegase#autopilot--bounded-autonomous-chaining"
+        target="_blank">how AutoPilot decides</a>. This panel polls the mission
+        every 3s while it is running.
+      </p>
+      <p id="autopilot-panel-status" class="muted"></p>
+      <div id="autopilot-rounds"></div>
+      <button id="autopilot-panel-close" type="button">Close</button>
     </section>
 
     <section>

@@ -104,3 +104,60 @@ def test_run_mission_task_persists_findings(sqlite_url):
         assert len(findings) == 1
         assert findings[0].title == "fake finding"
         assert findings[0].severity.value == "high"
+
+
+def test_run_autopilot_task_persists_findings_and_round_summary(sqlite_url, monkeypatch):
+    """End-to-end: API->worker->DB for AutoPilot, with the real planner
+    (``pegase.ai.selection``) seeing the real registry so the chain can
+    actually pick up ``webbreacher``/``vulnmatrix``/``postxploit`` after the
+    fake seed module's finding - only the seed module itself is fake."""
+
+    class _FakeRecon(_Fake):
+        name = "faketest"
+
+        async def run(self, *, targets, guard, parameters=None) -> ModuleResult:
+            guard.check(targets[0], self.action_type)
+            return ModuleResult(
+                module=self.name,
+                findings=[
+                    ModFinding(
+                        module=self.name,
+                        target=targets[0],
+                        title="Open port 80/tcp (http)",
+                        description="from worker test",
+                        severity="high",
+                    )
+                ],
+            )
+
+    import pegase.modules as modules_pkg
+
+    orig = modules_pkg.available_modules
+
+    def _patched():
+        reg = dict(orig())
+        reg["faketest"] = _FakeRecon
+        return reg
+
+    monkeypatch.setattr("pegase.tasks.scans.available_modules", _patched)
+    monkeypatch.setattr("pegase.core.autopilot.available_modules", _patched)
+    monkeypatch.setattr("pegase.ai.selection.available_modules", _patched)
+
+    from pegase.tasks.scans import run_autopilot_task
+
+    result = run_autopilot_task.run(
+        "m-worker", ["faketest"], "tester", max_rounds=3, max_modules=10
+    )
+    assert result["ok"] is True
+    assert result["rounds"] >= 1
+
+    engine = create_engine(sqlite_url, future=True)
+    Session = sessionmaker(engine, future=True)
+    with Session() as s:
+        mission = s.scalar(select(Mission).where(Mission.id == "m-worker"))
+        assert mission.status == MissionStatus.COMPLETED
+        assert mission.autopilot_state is not None
+        assert mission.autopilot_state["rounds"]
+        assert mission.autopilot_state["rounds"][0]["modules_run"] == ["faketest"]
+        findings = list(s.scalars(select(Finding).where(Finding.mission_id == "m-worker")))
+        assert any(f.title == "Open port 80/tcp (http)" for f in findings)

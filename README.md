@@ -282,6 +282,40 @@ autopilot ran 3 round(s) (stopped: no further module recommended)
   round 3: ... -> 0 finding(s)
 ```
 
+**Jury-gated chaining (`--use-jury`).** Pass `--use-jury` and every new finding
+is deliberated by `pegase.ai.jury.Jury` before it is allowed to influence the
+next round — the always-on deterministic, evidence-only juror votes on
+severity/evidence/references; LLM jurors, if configured, add their vote on
+top. A finding the jury *rejects* still lands in the final report (it's real
+tool output), but it can never, by itself, trigger further autonomous action.
+This is what stops a single noisy signal from cascading into a chain of
+unnecessary active probes — a check PentAGI/HexStrike-style agent loops don't
+have, because nothing cross-validates a tool's output before acting on it.
+
+```bash
+pegase scan --target app.customer.example --authorization RoE-001 \
+  --allow-active --autopilot --use-jury
+```
+
+**ThreatSim seeding.** Combine `--scenario` with `--autopilot` and ThreatSim
+supplies only the *opening move* (the scenario's first stage) — AutoPilot
+decides everything after it from the evidence actually gathered, instead of
+just replaying the scenario's fixed script:
+
+```bash
+pegase scan --target app.customer.example --authorization RoE-001 \
+  --allow-active --scenario recon-and-enumerate --autopilot
+```
+
+**Over the API:** `POST /api/v1/missions/{id}/autopilot` queues the same
+bounded run through Celery (`seed_modules`, `scenario`, `max_rounds`,
+`max_modules`, `use_jury` in the body); `GET /api/v1/missions/{id}` then
+carries the round-by-round summary in `autopilot_state`, exactly as the CLI
+prints it. The dashboard (`/`) shows a **"N round(s)"** link next to any
+mission that has run through AutoPilot — click it to open a live panel that
+polls the mission every 3s while it's running and renders each round, its
+chosen modules and reasons, and any jury verdicts.
+
 ---
 
 ## Safety model
