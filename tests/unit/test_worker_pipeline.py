@@ -161,3 +161,75 @@ def test_run_autopilot_task_persists_findings_and_round_summary(sqlite_url, monk
         assert mission.autopilot_state["rounds"][0]["modules_run"] == ["faketest"]
         findings = list(s.scalars(select(Finding).where(Finding.mission_id == "m-worker")))
         assert any(f.title == "Open port 80/tcp (http)" for f in findings)
+
+
+def test_run_mission_task_mission_not_found(sqlite_url):
+    from pegase.tasks.scans import run_mission_task
+
+    result = run_mission_task.run("does-not-exist", ["faketest"], "tester")
+    assert result == {"ok": False, "error": "mission not found"}
+
+
+def test_run_mission_task_failure_path_marks_mission_failed(sqlite_url):
+    """An unknown module name reaches the task (the API layer validates this
+    before queuing, but the task must defend against it independently) and
+    must be caught, marking the mission FAILED rather than crashing the
+    worker."""
+    from pegase.tasks.scans import run_mission_task
+
+    result = run_mission_task.run("m-worker", ["totally-bogus-module"], "tester")
+    assert result["ok"] is False
+    assert "error" in result
+
+    engine = create_engine(sqlite_url, future=True)
+    Session = sessionmaker(engine, future=True)
+    with Session() as s:
+        mission = s.scalar(select(Mission).where(Mission.id == "m-worker"))
+        assert mission.status == MissionStatus.FAILED
+
+
+def test_run_autopilot_task_mission_not_found(sqlite_url):
+    from pegase.tasks.scans import run_autopilot_task
+
+    result = run_autopilot_task.run("does-not-exist", ["faketest"], "tester")
+    assert result == {"ok": False, "error": "mission not found"}
+
+
+def test_run_autopilot_task_failure_path_marks_mission_failed(sqlite_url):
+    """An all-invalid seed module list makes AutoPilot itself raise
+    ValueError ("no valid seed modules..."); the task must catch it and mark
+    the mission FAILED rather than crashing the worker."""
+    from pegase.tasks.scans import run_autopilot_task
+
+    result = run_autopilot_task.run("m-worker", ["totally-bogus-module"], "tester")
+    assert result["ok"] is False
+    assert "no valid seed modules" in result["error"]
+
+    engine = create_engine(sqlite_url, future=True)
+    Session = sessionmaker(engine, future=True)
+    with Session() as s:
+        mission = s.scalar(select(Mission).where(Mission.id == "m-worker"))
+        assert mission.status == MissionStatus.FAILED
+
+
+def test_run_autopilot_task_use_jury_offline(sqlite_url, monkeypatch):
+    """use_jury=True must work fully offline (no LLM key configured): the
+    Jury falls back to its deterministic, evidence-only juror."""
+    import pegase.modules as modules_pkg
+
+    orig = modules_pkg.available_modules
+
+    def _patched():
+        reg = dict(orig())
+        reg["faketest"] = _Fake
+        return reg
+
+    # AutoPilot's own module registry lookup is independent of the task's.
+    monkeypatch.setattr("pegase.core.autopilot.available_modules", _patched)
+
+    from pegase.tasks.scans import run_autopilot_task
+
+    result = run_autopilot_task.run(
+        "m-worker", ["faketest"], "tester", max_rounds=1, max_modules=5, use_jury=True
+    )
+    assert result["ok"] is True
