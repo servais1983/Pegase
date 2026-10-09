@@ -24,6 +24,23 @@ def test_load_builtin_scenario_resolves_modules():
     assert params["netassault"]["ports"] == "1-1024"
 
 
+def test_seed_modules_is_only_the_first_stage():
+    scen = load_scenario("external-apt")
+    assert scen.seed_modules() == ["recon"]
+
+    scen2 = load_scenario("recon-and-enumerate")
+    assert scen2.seed_modules() == ["recon"]
+    # The first stage is a strict subset of the full module list.
+    assert set(scen2.seed_modules()) <= set(scen2.all_modules())
+
+
+def test_seed_modules_empty_for_stageless_scenario():
+    from pegase.core.scenarios import Scenario
+
+    empty = Scenario(name="x", description="", stages=[])
+    assert empty.seed_modules() == []
+
+
 def test_unknown_scenario_raises():
     with pytest.raises(ValueError, match="unknown scenario"):
         load_scenario("does-not-exist")

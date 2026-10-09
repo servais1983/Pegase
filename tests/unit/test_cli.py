@@ -173,6 +173,70 @@ def test_scan_without_autopilot_runs_only_requested_modules(monkeypatch) -> None
     assert "autopilot" not in result.output.lower()
 
 
+def test_scan_autopilot_with_scenario_seeds_from_first_stage_only(monkeypatch) -> None:
+    """--scenario + --autopilot: ThreatSim supplies the opening move (its
+    first stage), AutoPilot decides everything after it - it must not just
+    replay the scenario's full, fixed module list."""
+    monkeypatch.setattr("pegase.modules.recon.whois", None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"[]")
+
+    class _PatchedClient(httpx.AsyncClient):  # type: ignore[misc]
+        def __init__(self, *a, **kw):
+            kw["transport"] = httpx.MockTransport(handler)
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr("httpx.AsyncClient", _PatchedClient)
+
+    result = runner.invoke(
+        cli,
+        [
+            "scan",
+            "--target", "203.0.113.12",
+            "--authorization", "RoE-test",
+            "--allow-active",
+            "--scenario", "recon-and-enumerate",
+            "--autopilot",
+            "--max-rounds", "1",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    out = result.output.lower()
+    assert "autopilot" in out
+    # Only recon (the scenario's first stage) ran in round 1 - not the whole
+    # recon-and-enumerate module list in one go.
+    assert "round 1: recon " in out
+
+
+def test_scan_autopilot_use_jury_flag_runs_offline(monkeypatch) -> None:
+    """--use-jury must work with zero configuration (no LLM key): the jury
+    falls back to its deterministic, evidence-only juror."""
+    monkeypatch.setattr("pegase.modules.recon.whois", None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"[]")
+
+    monkeypatch.setattr(
+        "pegase.modules.recon.httpx.AsyncClient",
+        lambda *a, **kw: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    result = runner.invoke(
+        cli,
+        [
+            "scan",
+            "--target", "203.0.113.13",
+            "--authorization", "RoE-test",
+            "--autopilot",
+            "--use-jury",
+            "--max-rounds", "1",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "autopilot" in result.output.lower()
+
+
 def test_cli_help_lists_commands() -> None:
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0

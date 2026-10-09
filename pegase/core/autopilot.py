@@ -23,12 +23,23 @@ PentAGI/HexStrike - with three differences that are the whole point:
 Every module invocation still goes through the mission's ``ScopeGuard``
 exactly as it would under manual orchestration: AutoPilot does not grant
 itself any authority the operator didn't already grant the mission.
+
+**Optional jury-gated chaining.** Pass a :class:`~pegase.ai.jury.Jury` and
+AutoPilot stops trusting a module's output at face value before letting it
+steer the next round: every new finding is deliberated by the jury (the
+deterministic, evidence-only juror always votes; LLM jurors, if configured,
+add their vote on top), and only findings the jury *confirms* are allowed to
+influence what runs next. A finding the jury rejects still appears in the
+final report (it is real tool output - the operator should see it) but it
+cannot, on its own, trigger further autonomous action. This is what keeps a
+flaky scanner or a single noisy signal from cascading into a chain of
+unnecessary active probes.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pegase.ai.selection import ModuleRecommendation, recommend_modules
 from pegase.core.audit import AuditLog, get_audit_log
@@ -43,6 +54,9 @@ from pegase.core.scope import ActionType
 from pegase.modules import available_modules
 from pegase.modules.base import Finding, Module, ModuleResult
 
+if TYPE_CHECKING:
+    from pegase.ai.jury import Jury
+
 log = get_logger(__name__)
 
 DEFAULT_SEED_MODULES = ("recon",)
@@ -55,6 +69,9 @@ class AutoPilotRound:
     reasons: dict[str, str]
     new_findings: int
     errors: list[str] = field(default_factory=list)
+    #: Present only when AutoPilot was built with a ``jury``: one entry per
+    #: new finding this round, ``{"title", "confirmed", "confidence"}``.
+    jury_verdicts: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -63,6 +80,7 @@ class AutoPilotRound:
             "reasons": self.reasons,
             "new_findings": self.new_findings,
             "errors": self.errors,
+            "jury_verdicts": self.jury_verdicts,
         }
 
 
@@ -97,6 +115,7 @@ class AutoPilot:
         max_concurrency: int | None = None,
         seed_modules: tuple[str, ...] = DEFAULT_SEED_MODULES,
         max_recommendations_per_round: int = 3,
+        jury: Jury | None = None,
     ) -> None:
         if max_rounds < 1:
             raise ValueError("max_rounds must be >= 1")
@@ -108,6 +127,7 @@ class AutoPilot:
         self._max_concurrency = max_concurrency
         self._seed_modules = seed_modules
         self._max_recs = max_recommendations_per_round
+        self._jury = jury
 
     async def run(self, ctx: MissionContext) -> AutoPilotOutcome:
         registry = available_modules()
@@ -133,6 +153,7 @@ class AutoPilot:
 
         rounds: list[AutoPilotRound] = []
         all_findings: list[Finding] = []
+        planning_findings: list[Finding] = []
         all_results: list[ModuleResult] = []
         all_errors: list[str] = []
         already_run: set[str] = set()
@@ -169,6 +190,26 @@ class AutoPilot:
             all_results.extend(outcome.module_results)
             all_errors.extend(outcome.errors)
 
+            jury_verdicts: list[dict[str, Any]] = []
+            if self._jury is not None:
+                for f in outcome.findings:
+                    verdict = await self._jury.deliberate(finding_to_dict(f))
+                    jury_verdicts.append(verdict.to_dict())
+                    if verdict.confirmed:
+                        planning_findings.append(f)
+                self._audit.append(
+                    action="autopilot.jury",
+                    actor=ctx.actor,
+                    mission=ctx.mission_id,
+                    meta={
+                        "round": round_index,
+                        "confirmed": sum(1 for v in jury_verdicts if v["confirmed"]),
+                        "rejected": sum(1 for v in jury_verdicts if not v["confirmed"]),
+                    },
+                )
+            else:
+                planning_findings.extend(outcome.findings)
+
             rounds.append(
                 AutoPilotRound(
                     index=round_index,
@@ -176,6 +217,7 @@ class AutoPilot:
                     reasons={m: reasons.get(m, "") for m in round_modules},
                     new_findings=len(outcome.findings),
                     errors=outcome.errors,
+                    jury_verdicts=jury_verdicts,
                 )
             )
             self._audit.append(
@@ -191,7 +233,7 @@ class AutoPilot:
             )
 
             recs = self._next_recommendations(
-                all_findings, ctx, registry, allowed_actions, already_run
+                planning_findings, ctx, registry, allowed_actions, already_run
             )
             next_modules = [r.module for r in recs]
             reasons = {r.module: r.reason for r in recs}

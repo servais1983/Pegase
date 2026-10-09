@@ -34,6 +34,18 @@ class Scenario:
     description: str
     stages: list[Stage]
 
+    def seed_modules(self) -> list[str]:
+        """The opening move: the first stage's module list.
+
+        Used to seed :class:`~pegase.core.autopilot.AutoPilot` so a scenario
+        becomes a *starting point* for an autonomous run instead of its full
+        fixed script - ThreatSim picks the opening stage, AutoPilot decides
+        everything after it from the evidence actually gathered.
+        """
+        if not self.stages:
+            return []
+        return list(self.stages[0].modules)
+
     def all_modules(self) -> list[str]:
         seen: list[str] = []
         for stage in self.stages:

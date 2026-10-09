@@ -224,6 +224,11 @@ def scenarios_cmd() -> None:
 )
 @click.option("--max-rounds", default=6, show_default=True, help="AutoPilot: max chaining rounds.")
 @click.option("--max-modules", default=20, show_default=True, help="AutoPilot: max total module runs.")
+@click.option(
+    "--use-jury", "use_jury", is_flag=True, default=False,
+    help="AutoPilot: gate chaining through the AI jury - only a jury-confirmed "
+    "finding may trigger the next round (offline deterministic juror always on).",
+)
 def scan_cmd(
     targets: tuple[str, ...],
     modules: tuple[str, ...],
@@ -237,11 +242,13 @@ def scan_cmd(
     autopilot: bool,
     max_rounds: int,
     max_modules: int,
+    use_jury: bool,
 ) -> None:
     """Run a one-off mission from the command line."""
     registry = available_modules()
 
     parameters: dict = {}
+    scenario_seed: tuple[str, ...] | None = None
     if scenario:
         from pegase.core.scenarios import load_scenario
 
@@ -251,6 +258,7 @@ def scan_cmd(
             click.echo(f"scenario invalid: {errors}", err=True)
             sys.exit(1)
         modules = tuple(scen.all_modules())
+        scenario_seed = tuple(scen.seed_modules())
         parameters = scen.merged_parameters()
         console.print(f"[cyan]scenario[/cyan] {scen.name}: modules={list(modules)}")
 
@@ -284,8 +292,18 @@ def scan_cmd(
     if autopilot:
         from pegase.core.autopilot import AutoPilot
 
+        jury = None
+        if use_jury:
+            from pegase.ai.jury import Jury
+            from pegase.ai.providers import get_provider
+
+            jury = Jury(providers=[get_provider(get_settings())])
+
         pilot = AutoPilot(
-            seed_modules=tuple(modules), max_rounds=max_rounds, max_modules=max_modules
+            seed_modules=scenario_seed or tuple(modules),
+            max_rounds=max_rounds,
+            max_modules=max_modules,
+            jury=jury,
         )
         outcome = asyncio.run(pilot.run(ctx))
         console.print(
@@ -297,6 +315,12 @@ def scan_cmd(
                 f"{m} [{rnd.reasons.get(m, '')}]" for m in rnd.modules_run
             )
             console.print(f"  round {rnd.index}: {picked} -> {rnd.new_findings} finding(s)")
+            if rnd.jury_verdicts:
+                for v in rnd.jury_verdicts:
+                    mark = "✅" if v["confirmed"] else "❌"
+                    console.print(
+                        f"    jury {mark} {v['finding']} (confidence={v['confidence']})"
+                    )
     else:
         instances = [registry[m]() for m in modules]
         orchestrator = Orchestrator(instances)
