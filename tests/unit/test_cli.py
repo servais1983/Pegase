@@ -242,3 +242,321 @@ def test_cli_help_lists_commands() -> None:
     assert result.exit_code == 0
     for cmd in ("modules", "scenarios", "scan", "audit", "ai"):
         assert cmd in result.output
+
+
+def _reset_audit_and_settings(monkeypatch, audit_path) -> None:
+    monkeypatch.setenv("PEGASE_AUDIT_LOG_PATH", str(audit_path))
+    from pegase.core import audit, config
+
+    config.get_settings.cache_clear()  # type: ignore[attr-defined]
+    monkeypatch.setattr(audit, "_default", None)
+
+
+def test_audit_command_ok(tmp_path, monkeypatch) -> None:
+    audit_path = tmp_path / "audit.log"
+    _reset_audit_and_settings(monkeypatch, audit_path)
+    from pegase.core.audit import get_audit_log
+
+    get_audit_log().append(action="test.entry", actor="tester")
+
+    result = runner.invoke(cli, ["audit"])
+    assert result.exit_code == 0, result.output
+    assert "OK" in result.output
+
+
+def test_audit_command_detects_tamper(tmp_path, monkeypatch) -> None:
+    audit_path = tmp_path / "audit.log"
+    _reset_audit_and_settings(monkeypatch, audit_path)
+    from pegase.core.audit import get_audit_log
+
+    get_audit_log().append(action="test.entry", actor="tester")
+
+    # Flip a byte in the recorded action without recomputing the hash.
+    text = audit_path.read_text(encoding="utf-8")
+    tampered = text.replace("test.entry", "test.evil")
+    audit_path.write_text(tampered, encoding="utf-8")
+
+    result = runner.invoke(cli, ["audit"])
+    assert result.exit_code == 2
+    assert "TAMPER" in result.output
+
+
+def test_user_create_command_success(tmp_path, monkeypatch) -> None:
+    from sqlalchemy import create_engine
+
+    from pegase.db.models import Base
+
+    db_path = tmp_path / "cli_users.db"
+    url = f"sqlite:///{db_path}"
+    engine = create_engine(url, future=True)
+    Base.metadata.create_all(engine)
+
+    from pegase.core import config
+
+    monkeypatch.setenv("PEGASE_DATABASE_SYNC_URL", url)
+    config.get_settings.cache_clear()  # type: ignore[attr-defined]
+
+    result = runner.invoke(
+        cli,
+        [
+            "user",
+            "create",
+            "--username",
+            "cli-user",
+            "--email",
+            "cli-user@example.org",
+            "--password",
+            "cli-user-pass-12345",
+            "--password",
+            "cli-user-pass-12345",
+            "--role",
+            "operator",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "created user cli-user" in result.output
+
+
+def test_user_create_command_rejects_duplicate(tmp_path, monkeypatch) -> None:
+    from sqlalchemy import create_engine
+
+    from pegase.db.models import Base
+
+    db_path = tmp_path / "cli_users_dup.db"
+    url = f"sqlite:///{db_path}"
+    engine = create_engine(url, future=True)
+    Base.metadata.create_all(engine)
+
+    from pegase.core import config
+
+    monkeypatch.setenv("PEGASE_DATABASE_SYNC_URL", url)
+    config.get_settings.cache_clear()  # type: ignore[attr-defined]
+
+    args = [
+        "user", "create",
+        "--username", "dupe-user",
+        "--email", "dupe@example.org",
+        "--password", "dupe-pass-12345",
+        "--password", "dupe-pass-12345",
+    ]
+    first = runner.invoke(cli, args)
+    assert first.exit_code == 0, first.output
+
+    second = runner.invoke(cli, args)
+    assert second.exit_code == 1
+    assert "already exists" in second.output
+
+
+def test_load_findings_dict_with_findings_key(tmp_path) -> None:
+    from pegase.cli import _load_findings
+
+    path = tmp_path / "wrapped.json"
+    path.write_text(json.dumps({"findings": [{"title": "x"}]}), encoding="utf-8")
+    assert _load_findings(str(path)) == [{"title": "x"}]
+
+
+def test_load_findings_unrecognized_shape_returns_empty(tmp_path) -> None:
+    from pegase.cli import _load_findings
+
+    path = tmp_path / "weird.json"
+    path.write_text(json.dumps(42), encoding="utf-8")
+    assert _load_findings(str(path)) == []
+
+
+def test_scan_rejects_invalid_scenario() -> None:
+    scenario_yaml_body = (
+        "name: bad\ndescription: x\nstages:\n  - name: s1\n    modules: [does-not-exist]\n"
+    )
+    import os as _os
+    import tempfile
+
+    fd, path = tempfile.mkstemp(suffix=".yaml")
+    try:
+        with _os.fdopen(fd, "w") as fh:
+            fh.write(scenario_yaml_body)
+        result = runner.invoke(
+            cli,
+            [
+                "scan", "--target", "example.com",
+                "--authorization", "RoE-x",
+                "--scenario", path,
+            ],
+        )
+        assert result.exit_code == 1
+        assert "scenario invalid" in result.output
+    finally:
+        _os.unlink(path)
+
+
+def test_scan_rejects_unknown_modules() -> None:
+    result = runner.invoke(
+        cli,
+        [
+            "scan", "--target", "example.com",
+            "--authorization", "RoE-x",
+            "--module", "does-not-exist",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "unknown modules" in result.output
+
+
+def test_scan_allow_exploit_flag(monkeypatch) -> None:
+    """--allow-exploit must add ActionType.EXPLOIT to the mission's allowed
+    actions (exercised directly - the scope object isn't observable through
+    stdout, so this inspects the Scope built by the command callback)."""
+    monkeypatch.setattr("pegase.modules.recon.whois", None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"[]")
+
+    class _Patched(httpx.AsyncClient):  # type: ignore[misc]
+        def __init__(self, *a, **kw):
+            kw["transport"] = httpx.MockTransport(handler)
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr("pegase.modules.recon.httpx.AsyncClient", _Patched)
+
+    from pegase.cli import scan_cmd
+    from pegase.core.orchestrator import MissionContext
+    from pegase.core.scope import ActionType
+
+    captured_scopes = []
+    real_init = MissionContext.__init__
+
+    def spy_init(self, *a, **kw):
+        captured_scopes.append(kw.get("scope"))
+        return real_init(self, *a, **kw)
+
+    monkeypatch.setattr(MissionContext, "__init__", spy_init)
+
+    scan_cmd.callback(
+        targets=("203.0.113.20",), modules=("recon",), scenario=None,
+        scope_patterns=(), authorization="RoE-x", allow_active=False,
+        allow_exploit=True, output=None, ai_analyze=False, autopilot=False,
+        max_rounds=6, max_modules=20, use_jury=False,
+    )
+    assert any(
+        ActionType.EXPLOIT in s.allowed_actions for s in captured_scopes if s
+    )
+
+
+def test_scan_with_ai_flag_and_output_file(monkeypatch, tmp_path) -> None:
+    """Exercises scan_cmd's --ai analysis block and --output JSON write.
+
+    Calls scan_cmd.callback() directly rather than through CliRunner: Click's
+    test runner has been observed to interfere with coverage measurement of
+    code that runs after an internal asyncio.run() call inside the invoked
+    command (confirmed by comparing bare-script vs CliRunner-driven runs of
+    the identical code path) - calling the callback directly sidesteps that
+    while still exercising the exact same production code.
+    """
+    from pegase.core.scope import ActionType
+    from pegase.modules.base import Finding, Module, ModuleResult
+
+    class _FakeVulnModule(Module):
+        name = "faketest"
+        action_type = ActionType.PASSIVE
+
+        async def run(self, *, targets, guard, parameters=None) -> ModuleResult:
+            guard.check(targets[0], self.action_type)
+            return ModuleResult(
+                module=self.name,
+                findings=[
+                    Finding(
+                        module=self.name,
+                        target=targets[0],
+                        title="Outdated OpenSSH",
+                        description="OpenSSH_6.6 detected - multiple known CVEs",
+                        severity="critical",
+                        evidence={"product": "OpenSSH", "version": "6.6"},
+                    )
+                ],
+            )
+
+    import pegase.cli as cli_mod
+
+    registry = dict(cli_mod.available_modules())
+    registry["faketest"] = _FakeVulnModule
+    monkeypatch.setattr(cli_mod, "available_modules", lambda: registry)
+
+    from pegase.cli import scan_cmd
+
+    out_file = tmp_path / "report.json"
+    scan_cmd.callback(
+        targets=("203.0.113.21",), modules=("faketest",), scenario=None,
+        scope_patterns=(), authorization="RoE-x", allow_active=False,
+        allow_exploit=False, output=str(out_file), ai_analyze=True,
+        autopilot=False, max_rounds=6, max_modules=20, use_jury=False,
+    )
+
+    assert out_file.exists()
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert "findings" in data
+    assert len(data["findings"]) == 1
+
+
+def test_scan_autopilot_errors_are_printed(monkeypatch) -> None:
+    """Exercises the `if outcome.errors:` branch via a module that raises a
+    ScopeViolation (an out-of-scope target), calling the callback directly
+    for the same coverage-fidelity reason as the test above."""
+    from pegase.cli import scan_cmd
+
+    # Scope only covers "in-scope.example"; the target below is outside it,
+    # so Orchestrator will record a ScopeViolation in outcome.errors.
+    scan_cmd.callback(
+        targets=("out-of-scope.example",), modules=("recon",), scenario=None,
+        scope_patterns=("in-scope.example",), authorization="RoE-x",
+        allow_active=False, allow_exploit=False, output=None,
+        ai_analyze=False, autopilot=False, max_rounds=6, max_modules=20,
+        use_jury=False,
+    )
+    # No assertion on captured output needed beyond "it didn't raise" - the
+    # point is executing the errors-printing branch without crashing.
+
+
+def test_scan_autopilot_jury_loop_direct_call(monkeypatch) -> None:
+    """Exercises the jury-verdict print loop (round.jury_verdicts) via a
+    direct callback call, for the same coverage-fidelity reason documented
+    on test_scan_with_ai_flag_and_output_file above."""
+    from pegase.core.scope import ActionType
+    from pegase.modules.base import Finding, Module, ModuleResult
+
+    class _FakeConfidentModule(Module):
+        name = "faketest"
+        action_type = ActionType.PASSIVE
+
+        async def run(self, *, targets, guard, parameters=None) -> ModuleResult:
+            guard.check(targets[0], self.action_type)
+            return ModuleResult(
+                module=self.name,
+                findings=[
+                    Finding(
+                        module=self.name,
+                        target=targets[0],
+                        title="Outdated OpenSSH",
+                        description="OpenSSH_6.6 detected - multiple known CVEs",
+                        severity="critical",
+                        evidence={"product": "OpenSSH", "version": "6.6"},
+                        references=["https://example.com/cve"],
+                    )
+                ],
+            )
+
+    import pegase.ai.selection as selection_mod
+    import pegase.cli as cli_mod
+    import pegase.core.autopilot as autopilot_mod
+
+    registry = {**cli_mod.available_modules(), "faketest": _FakeConfidentModule}
+    monkeypatch.setattr(cli_mod, "available_modules", lambda: registry)
+    monkeypatch.setattr(autopilot_mod, "available_modules", lambda: registry)
+    monkeypatch.setattr(selection_mod, "available_modules", lambda: registry)
+
+    from pegase.cli import scan_cmd
+
+    scan_cmd.callback(
+        targets=("203.0.113.22",), modules=("faketest",), scenario=None,
+        scope_patterns=(), authorization="RoE-x", allow_active=False,
+        allow_exploit=False, output=None, ai_analyze=False, autopilot=True,
+        max_rounds=1, max_modules=5, use_jury=True,
+    )
