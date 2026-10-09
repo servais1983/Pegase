@@ -35,6 +35,7 @@ class WirelessPhantom(Module):
     name = "wirelessphantom"
     description = "Analyze airodump-ng CSV surveys (open/WEP/WPS/hidden networks)."
     action_type = ActionType.PASSIVE
+    autopilot_ready = False  # requires parameters["csv_path"] from a capture tool
 
     async def run(
         self,

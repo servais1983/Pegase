@@ -41,6 +41,15 @@ class Module(ABC):
     action_type: ClassVar[ActionType] = ActionType.PASSIVE
     needs_upstream_findings: ClassVar[bool] = False
 
+    #: Whether AutoPilot (``pegase.core.autopilot``) may select and run this
+    #: module on its own. A module must be set to ``False`` here when it
+    #: *requires* an operator-supplied artifact or decision that cannot be
+    #: safely synthesized (a phishing recipient list, a physical site visit,
+    #: a captured wireless capture file, an explicit third-party tool name,
+    #: an APK path). Those modules remain fully usable through ``--module``/
+    #: the API; AutoPilot simply never invents the missing input for them.
+    autopilot_ready: ClassVar[bool] = True
+
     @abstractmethod
     async def run(
         self,

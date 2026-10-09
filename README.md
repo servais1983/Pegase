@@ -25,6 +25,7 @@ hash-chained audit log, and a REST API + CLI.
 | Core         | Mission orchestrator, async runtime, JWT auth, hash-chained audit log, RoE / scope guard.                          |
 | Modules      | 12 modules: `recon`, `netassault`, `webbreacher`, `socialmatrix`, `cloudstrike`, `mobilehunter`, `wirelessphantom`, `physicalvector`, `toolforge`, `vulnmatrix`, `postxploit`, `aibreacher`. |
 | AI           | LLM-augmented intelligence layer: grounded findings advisor (risk score, prioritized risks + remediation, attack narrative), recon-aware module selection, multi-model validation jury, and an anti-hallucination guardrail ("no claim without a receipt"). Multi-provider (offline / Anthropic / OpenAI / Ollama); **fully deterministic and offline by default** — no keys, nothing leaves the host. |
+| AutoPilot    | Bounded, audited autonomous mission chaining (`pegase scan --autopilot`): after each round, the evidence-driven planner picks the next modules from the findings gathered so far, under hard `--max-rounds`/`--max-modules` ceilings and the same `ScopeGuard` every manual action goes through. Every round and every plan/skip decision is written to the hash-chained audit log. |
 | Scenarios    | ThreatSim engine: named multi-stage kill-chains (`recon-and-enumerate`, `external-apt`, `cloud-review`, `llm-redteam`) + custom YAML. |
 | Auth         | JWT access + refresh tokens, `/auth/refresh`, `/auth/logout` with Redis-backed revocation (jti blocklist). |
 | Storage      | PostgreSQL via SQLAlchemy 2 (async) + Alembic migrations.                                                          |
@@ -236,6 +237,53 @@ existing `httpx` dependency).
 
 ---
 
+## AutoPilot — bounded autonomous chaining
+
+A growing class of tools (PentAGI, HexStrike and similar "AI pentest agent"
+projects) hand an LLM a tool belt and let it decide, turn by turn, what to run
+next against a live target. That is powerful, but it also means the thing
+deciding to pivot from a port scan into exploitation is a model that can
+hallucinate, and the record of *why* it did what it did is, at best, a chat
+transcript.
+
+PEGASE's AutoPilot (`pegase/core/autopilot.py`) gets the same "point it at a
+target and let it chain recon into exploitation enumeration" workflow, built
+on three guarantees none of those tools make:
+
+1. **The planner is not an LLM.** Which module runs next is decided by
+   `pegase.ai.selection`'s deterministic, evidence-pattern engine — the exact
+   same code path the `pegase ai recommend` command uses, fully unit-tested
+   and reproducible. An LLM (if you've configured one) is only ever allowed to
+   *narrate* the result afterwards, through the grounded `AIAdvisor`, which
+   discards any sentence that doesn't tie back to a real finding.
+2. **Hard ceilings, not good intentions.** `--max-rounds` and `--max-modules`
+   are enforced in code before a single extra module is instantiated. A run
+   cannot spiral into an unbounded scan the way an open-ended agent loop can.
+3. **Every decision is in the hash-chained audit log** — not just the modules
+   that ran, but the modules the planner *considered and why*, and the round
+   it decided to stop. An AutoPilot run is exactly as reviewable after the
+   fact, by an auditor who never watched it happen, as one you drove by hand.
+
+AutoPilot only ever self-selects modules that can run from `targets` alone
+(`Module.autopilot_ready`); it never invents a phishing recipient list, an APK
+path, a wireless capture file or a third-party tool name on your behalf — those
+stay explicit, operator-driven invocations.
+
+```bash
+pegase scan --target app.customer.example \
+  --authorization RoE-001 --allow-active \
+  --autopilot --max-rounds 6 --max-modules 20
+```
+
+```
+autopilot ran 3 round(s) (stopped: no further module recommended)
+  round 1: recon [seed module] -> 4 finding(s)
+  round 2: webbreacher [HTTP surface observed...], vulnmatrix [...], postxploit [...] -> 11 finding(s)
+  round 3: ... -> 0 finding(s)
+```
+
+---
+
 ## Safety model
 
 * `PEGASE_REQUIRE_AUTHORIZATION_TOKEN=true` (default) — no mission can leave
@@ -292,6 +340,8 @@ plus the attack-graph view. Delivered:
 * ✅ AI layer — grounded advisor, recon-aware module selection, multi-model
   jury, anti-hallucination guardrail (offline-first, LLM-optional).
 * ✅ AIBreacher — AI/LLM endpoint red-teaming (OWASP LLM Top 10, benign detection).
+* ✅ AutoPilot — bounded, audited, evidence-driven autonomous mission chaining
+  (`pegase scan --autopilot`), see [AutoPilot](#autopilot--bounded-autonomous-chaining).
 
 Still on the horizon:
 

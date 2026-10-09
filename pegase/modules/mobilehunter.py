@@ -59,6 +59,7 @@ class MobileHunter(Module):
     name = "mobilehunter"
     description = "Static Android APK analysis (permissions, exported components, secrets)."
     action_type = ActionType.PASSIVE
+    autopilot_ready = False  # requires parameters["apk_path"] from the operator
 
     async def run(
         self,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 
+import httpx
 from click.testing import CliRunner
 
 from pegase.cli import cli
@@ -107,6 +108,69 @@ def test_ai_recommend_offline(tmp_path) -> None:
     result = runner.invoke(cli, ["ai", "recommend", report])
     assert result.exit_code == 0, result.output
     assert "Recommended modules" in result.output
+
+
+def test_scan_autopilot_chains_beyond_the_seed_module(monkeypatch) -> None:
+    """``scan --autopilot`` must run more than just the seed module when the
+    evidence it gathers (here: a CT-log subdomain containing "web") triggers
+    a further recommendation. The literal-IP target skips the DNS resolver
+    entirely, and crt.sh/the webbreacher HTTP check are both mocked, so no
+    real network access happens."""
+    monkeypatch.setattr("pegase.modules.recon.whois", None)
+
+    # ``pegase.modules.recon.httpx`` and ``pegase.modules.webbreacher.httpx``
+    # are the *same* imported module object, so ``httpx.AsyncClient`` can only
+    # be monkeypatched once globally - one handler must serve both call sites,
+    # dispatched by request URL.
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "crt.sh" in str(request.url):
+            return httpx.Response(200, content=b'[{"name_value": "web.203.0.113.10"}]')
+        return httpx.Response(200, content=b"ok", headers={"Server": "nginx"})
+
+    class _PatchedClient(httpx.AsyncClient):  # type: ignore[misc]
+        def __init__(self, *a, **kw):
+            kw["transport"] = httpx.MockTransport(handler)
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr("httpx.AsyncClient", _PatchedClient)
+
+    result = runner.invoke(
+        cli,
+        [
+            "scan",
+            "--target", "203.0.113.10",
+            "--authorization", "RoE-test",
+            "--allow-active",
+            "--autopilot",
+            "--max-rounds", "3",
+            "--max-modules", "10",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    out = result.output.lower()
+    assert "autopilot" in out
+    assert "round 1" in out
+    assert "round 2" in out
+    assert "webbreacher" in out
+
+
+def test_scan_without_autopilot_runs_only_requested_modules(monkeypatch) -> None:
+    monkeypatch.setattr("pegase.modules.recon.whois", None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"[]")
+
+    monkeypatch.setattr(
+        "pegase.modules.recon.httpx.AsyncClient",
+        lambda *a, **kw: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    result = runner.invoke(
+        cli,
+        ["scan", "--target", "203.0.113.11", "--authorization", "RoE-test"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "autopilot" not in result.output.lower()
 
 
 def test_cli_help_lists_commands() -> None:
