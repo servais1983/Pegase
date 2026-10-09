@@ -90,3 +90,66 @@ async def test_jury_llm_juror_adds_vote():
     jurors = {v.juror for v in verdict.votes}
     assert jurors == {"deterministic", "confirm"}
     assert verdict.confirmed is True
+
+
+@pytest.mark.asyncio
+async def test_jury_llm_juror_vote_skipped_on_failed_completion():
+    class FailingProvider(OfflineProvider):
+        name = "failing"
+
+        @property
+        def offline(self):
+            return False
+
+        async def complete(self, *, system, prompt):
+            return LLMResponse("", self.name, "f-1", ok=False, error="down")
+
+    jury = Jury([FailingProvider()])
+    verdict = await jury.deliberate({"title": "x", "severity": "high", "evidence": {}})
+    jurors = {v.juror for v in verdict.votes}
+    assert jurors == {"deterministic"}  # the failing juror's vote was dropped
+
+
+@pytest.mark.asyncio
+async def test_jury_llm_juror_vote_skipped_on_unparseable_json():
+    class GibberishProvider(OfflineProvider):
+        name = "gibberish"
+
+        @property
+        def offline(self):
+            return False
+
+        async def complete(self, *, system, prompt):
+            return LLMResponse("not json at all", self.name, "g-1", ok=True)
+
+    jury = Jury([GibberishProvider()])
+    verdict = await jury.deliberate({"title": "x", "severity": "high", "evidence": {}})
+    jurors = {v.juror for v in verdict.votes}
+    assert jurors == {"deterministic"}
+
+
+@pytest.mark.asyncio
+async def test_jury_llm_juror_non_numeric_confidence_defaults_to_zero():
+    class WeirdConfidenceProvider(OfflineProvider):
+        name = "weird"
+
+        @property
+        def offline(self):
+            return False
+
+        async def complete(self, *, system, prompt):
+            return LLMResponse(
+                '{"confirmed": true, "confidence": "high", "rationale": "x"}',
+                self.name, "w-1", ok=True,
+            )
+
+    jury = Jury([WeirdConfidenceProvider()])
+    verdict = await jury.deliberate({"title": "x", "severity": "high", "evidence": {}})
+    weird_vote = next(v for v in verdict.votes if v.juror == "weird")
+    assert weird_vote.confidence == 0.0
+
+
+def test_first_json_returns_text_unchanged_when_no_braces():
+    from pegase.ai.jury import _first_json
+
+    assert _first_json("no braces here") == "no braces here"

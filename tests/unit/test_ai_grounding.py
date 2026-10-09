@@ -75,3 +75,35 @@ def test_ground_text_keeps_only_referenced_sentences():
     assert "10.0.0.5" in kept
     assert "app.example.com" in kept
     assert any("hidden admin panel" in d for d in dropped)
+
+
+def test_has_receipt_skips_empty_ref():
+    g = Grounder(FINDINGS)
+    claim = Claim(
+        "OpenSSH 7.2 on 10.0.0.5 is outdated",
+        evidence_refs=["", "10.0.0.5"],
+        severity="high",
+    )
+    ok, _reason = g.is_grounded(claim)
+    assert ok
+
+
+def test_has_receipt_matches_via_tokenized_compound_ref():
+    # A dedicated finding set whose evidence value is itself multi-word, so
+    # it tokenizes into separate tokens ("nginx", "server") rather than one
+    # compound token the way "nginx/1.14" would.
+    findings = [
+        {
+            "id": "g1", "module": "webbreacher", "target": "app.example.com",
+            "title": "Server banner", "description": "banner grab",
+            "evidence": {"banner": "nginx server"},
+        }
+    ]
+    g = Grounder(findings)
+    # The ref itself ("about nginx config") is never a single known token -
+    # only tokenizing it and matching "nginx" individually succeeds.
+    claim = Claim(
+        "nginx is running on app.example.com",
+        evidence_refs=["about nginx config"],
+    )
+    assert g.has_receipt(claim) is True

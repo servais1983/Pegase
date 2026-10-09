@@ -118,3 +118,60 @@ def test_get_provider_openai_with_key():
 def test_get_provider_unknown_falls_back_offline():
     p = get_provider(Settings(ai_provider="does-not-exist"))
     assert p.offline is True
+
+
+@pytest.mark.asyncio
+async def test_advisor_live_provider_failed_completion_keeps_deterministic_narrative():
+    class FailingProvider(OfflineProvider):
+        name = "failing"
+
+        @property
+        def offline(self):
+            return False
+
+        async def complete(self, *, system, prompt):
+            return LLMResponse("", self.name, "f-1", ok=False, error="rate limited")
+
+    analysis = await AIAdvisor(FailingProvider()).analyze(FINDINGS)
+    assert analysis.llm_used is False
+
+
+@pytest.mark.asyncio
+async def test_advisor_merges_duplicate_titles_into_one_risk():
+    dup_findings = [
+        {"id": "x1", "module": "netassault", "target": "10.0.0.1", "title": "Open Redis",
+         "description": "no auth", "severity": "high", "evidence": {}},
+        {"id": "x2", "module": "netassault", "target": "10.0.0.2", "title": "open redis",
+         "description": "no auth either", "severity": "critical", "evidence": {}},
+    ]
+    analysis = await AIAdvisor(OfflineProvider()).analyze(dup_findings)
+    assert len(analysis.prioritized_risks) == 1
+    risk = analysis.prioritized_risks[0]
+    assert risk.count == 2
+    assert set(risk.targets) == {"10.0.0.1", "10.0.0.2"}
+    assert set(risk.evidence_refs) == {"x1", "x2"}
+    # Severity escalates to the higher of the two duplicate findings.
+    assert risk.severity == "critical"
+
+
+@pytest.mark.asyncio
+async def test_advisor_narrative_includes_weakness_and_modeling_phases():
+    findings = FINDINGS + [
+        {"id": "v1", "module": "vulnmatrix", "target": "10.0.0.5", "title": "CVE match",
+         "description": "matched known CVE", "severity": "high", "evidence": {}},
+        {"id": "p1", "module": "postxploit", "target": "10.0.0.5", "title": "Attack path",
+         "description": "graph built", "severity": "high", "evidence": {}},
+    ]
+    analysis = await AIAdvisor(OfflineProvider()).analyze(findings)
+    assert "CVE match" in analysis.attack_narrative or "Weakness correlation" in analysis.attack_narrative
+
+
+@pytest.mark.asyncio
+async def test_advisor_moderate_headline_for_medium_severity_only():
+    findings = [
+        {"id": "m1", "module": "webbreacher", "target": "app.example.com",
+         "title": "Missing security header", "description": "no CSP",
+         "severity": "medium", "evidence": {}},
+    ]
+    analysis = await AIAdvisor(OfflineProvider()).analyze(findings)
+    assert "moderate" in analysis.executive_summary.lower()
