@@ -240,7 +240,7 @@ def _extract_text(resp: httpx.Response, response_path: str | None) -> str:
 def _stringify(data: Any) -> str:
     if isinstance(data, str):
         return data
-    if isinstance(data, (dict, list)):
+    if isinstance(data, dict | list):
         import json
         return json.dumps(data)
     return str(data)
