@@ -62,3 +62,8 @@ async def test_orchestrator_collects_findings_and_errors(tmp_audit_path):
     assert any("boom" in e for e in outcome.errors)
     ok, _, _ = audit.verify()
     assert ok
+
+
+def test_orchestrator_rejects_empty_module_list():
+    with pytest.raises(ValueError, match="at least one module"):
+        Orchestrator([])

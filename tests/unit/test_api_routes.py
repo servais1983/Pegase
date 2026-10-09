@@ -323,3 +323,19 @@ async def test_dashboard_renders_autopilot_watch_link_once_state_exists(
         assert "watch-autopilot" in r.text
         assert "1 round(s)" in r.text
         assert f'data-mission-id="{mid}"' in r.text
+
+
+@pytest.mark.asyncio
+async def test_readyz_checks_db_connectivity(client):
+    async with client as c:
+        r = await c.get("/readyz")
+        assert r.status_code == 200
+        assert r.json()["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_metrics_endpoint_returns_prometheus_format(client):
+    async with client as c:
+        r = await c.get("/metrics")
+        assert r.status_code == 200
+        assert "text/plain" in r.headers["content-type"]

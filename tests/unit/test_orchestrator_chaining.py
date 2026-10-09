@@ -64,3 +64,28 @@ async def test_consumer_receives_producer_findings(tmp_audit_path):
     await orch.run(ctx)
     assert len(consumer.received) == 1
     assert consumer.received[0]["evidence"]["product"] == "openssh"
+
+
+class _ExplodingConsumer(Module):
+    name = "exploding_consumer"
+    action_type = ActionType.PASSIVE
+    needs_upstream_findings = True
+
+    async def run(self, *, targets, guard, parameters=None) -> ModuleResult:
+        raise RuntimeError("consumer blew up")
+
+
+@pytest.mark.asyncio
+async def test_consumer_exception_is_collected_as_an_error(tmp_audit_path):
+    audit = AuditLog(tmp_audit_path)
+    scope = Scope(
+        rules=[ScopeRule("example.com")],
+        authorization_token="roe-x",
+        starts_at=datetime.now(UTC),
+    )
+    orch = Orchestrator([_Producer(), _ExplodingConsumer()], audit=audit, max_concurrency=2)
+    ctx = MissionContext(
+        mission_id="m", actor="t", scope=scope, targets=["example.com"], parameters={},
+    )
+    outcome = await orch.run(ctx)
+    assert any("consumer blew up" in e for e in outcome.errors)

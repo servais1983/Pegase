@@ -65,3 +65,10 @@ stages:
     assert scen.validate() == []
     assert scen.all_modules() == ["recon", "webbreacher"]
     assert scen.merged_parameters()["webbreacher"]["timeout"] == 5
+
+
+def test_scenario_with_no_stages_fails_validation():
+    from pegase.core.scenarios import Scenario
+
+    empty = Scenario(name="x", description="", stages=[])
+    assert "scenario has no stages" in empty.validate()

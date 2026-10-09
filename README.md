@@ -342,12 +342,32 @@ See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.
 ```bash
 pip install -e ".[dev]"
 ruff check pegase tests
-pytest                      # 71 unit tests (scope, audit, auth+refresh+revocation,
-                            #   orchestrator chaining, all modules, scenarios,
-                            #   AI layer: grounding, advisor, selection, jury,
-                            #   aibreacher, API routes + worker pipeline on SQLite)
+pytest --cov=pegase --cov-report=term-missing
+                            # 337 tests, 100% line coverage, enforced by
+                            #   [tool.coverage.report] fail_under = 100
+                            #   (covers every module, every API route,
+                            #   the CLI, the AI layer, Celery tasks, and
+                            #   their error/edge branches — see below)
 pytest -m integration       # needs Postgres + Redis on localhost
 ```
+
+**100% test coverage, enforced.** Every line in `pegase/` is covered and the
+build fails if that regresses (`fail_under = 100` in `pyproject.toml`). This
+was reached without inflating the test count with no-op assertions: the suite
+exercises real failure paths (connection errors, malformed responses,
+timeouts, tampered audit entries, revoked tokens, scope violations) with
+mocked transports/subprocesses/`boto3` — never real network, disk-destructive,
+or live-cloud calls. A small number of lines are `# pragma: no cover` by
+design: script-only `if __name__ == "__main__":` guards (the function they
+call has its own direct test) and one documented, genuinely unreachable
+defensive branch in `AutoPilot.run`.
+
+If your own coverage numbers look lower than expected on async/FastAPI code:
+SQLAlchemy's async engine bridges onto asyncio via `greenlet`, and
+`coverage.py` silently stops tracing code that runs after an `await` on an
+`AsyncSession` call unless told about it — `[tool.coverage.run] concurrency =
+["greenlet", "thread"]` fixes this (confirmed to take one route handler from
+~25% to 100% measured coverage with zero test changes).
 
 The full Docker stack (postgres + redis + api + worker + nginx) has been
 validated end-to-end: login → create mission → Celery worker runs real

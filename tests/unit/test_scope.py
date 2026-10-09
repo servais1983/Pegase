@@ -77,3 +77,15 @@ def test_allows_returns_bool():
     g = ScopeGuard(_scope())
     assert g.allows("app.example.com", ActionType.PASSIVE) is True
     assert g.allows("evil.org", ActionType.PASSIVE) is False
+
+
+def test_engagement_window_not_yet_started():
+    future = datetime.now(UTC) + timedelta(hours=1)
+    g = ScopeGuard(_scope(starts_at=future))
+    with pytest.raises(ScopeViolation):
+        g.check("app.example.com", ActionType.PASSIVE)
+
+
+def test_url_style_scope_pattern_reduces_to_host():
+    g = ScopeGuard(_scope(rules=[ScopeRule("https://api.example.com/v1")]))
+    g.check("api.example.com", ActionType.PASSIVE)

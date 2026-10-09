@@ -104,3 +104,15 @@ markers = [
 # exact same request handler goes from ~25% to 100% measured coverage with
 # this one setting, against both SQLite+aiosqlite and real Postgres+asyncpg.
 concurrency = ["greenlet", "thread"]
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+# The full pegase package is at 100% line coverage; keep it there. A small
+# number of lines are explicitly `# pragma: no cover` (script-only
+# `__main__` guards; one genuinely unreachable defensive branch in
+# AutoPilot.run documented inline) rather than contorting tests to hit
+# dead code.
+fail_under = 100
+exclude_also = [
+    "if __name__ == .__main__.:",
+]

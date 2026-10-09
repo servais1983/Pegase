@@ -162,7 +162,10 @@ class AutoPilot:
         stopped_reason = "max_rounds reached"
 
         for round_index in range(1, self._max_rounds + 1):
-            if not next_modules:
+            if not next_modules:  # pragma: no cover - defensive: the planner
+                # always breaks out at the end of the previous iteration
+                # (see below) before next_modules can be empty here; kept as
+                # a guard against a future refactor reordering that logic.
                 stopped_reason = "no further module recommended"
                 break
             if len(already_run) >= self._max_modules:

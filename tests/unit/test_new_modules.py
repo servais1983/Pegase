@@ -51,6 +51,25 @@ async def test_postxploit_builds_graph():
     assert graph["edges"][0]["target"] == "10.0.0.5"
 
 
+@pytest.mark.asyncio
+async def test_postxploit_skips_findings_with_no_resolvable_host():
+    prior = [
+        {"target": "", "module": "netassault", "severity": "medium"},
+        {"target": "10.0.0.5", "module": "netassault", "severity": "high"},
+    ]
+    result = await PostXploit().run(
+        targets=[], guard=_guard("10.0.0.0/24"),
+        parameters={"findings": prior},
+    )
+    ids = {n["id"] for n in result.raw["graph"]["nodes"]}
+    assert ids == {"10.0.0.5"}
+
+
+def test_host_of_empty_target_returns_empty_string():
+    assert _host_of("") == ""
+    assert _host_of("   ") == ""
+
+
 # --- WirelessPhantom -------------------------------------------------------
 
 
@@ -120,3 +139,15 @@ async def test_physicalvector_respects_scope():
         await PhysicalVector().run(
             targets=["out-of-scope-site"], guard=_guard("only-this-site"),
         )
+
+
+@pytest.mark.asyncio
+async def test_physicalvector_ok_status_control_is_skipped():
+    result = await PhysicalVector().run(
+        targets=["HQ"], guard=_guard("HQ"),
+        parameters={
+            "controls": ["server-room"],
+            "observations": {"server-room": {"status": "ok"}},
+        },
+    )
+    assert result.findings == []
