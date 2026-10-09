@@ -103,3 +103,30 @@ async def test_netassault_passes_custom_parameters(monkeypatch):
     assert captured["ports"] == "80,443"
     assert "-T5" in captured["arguments"]
     assert "--open" in captured["arguments"]
+
+
+def test_run_nmap_invokes_portscanner_correctly(monkeypatch):
+    """Exercises the real _run_nmap function (previously only ever mocked
+    out entirely in the async-run tests above), with nmap.PortScanner
+    itself faked so no real scan happens."""
+    calls = {}
+
+    class _FakePortScanner:
+        def scan(self, hosts, ports, arguments):
+            calls["scan"] = (hosts, ports, arguments)
+
+        def get_nmap_last_output(self):
+            return b"<xml>fake</xml>"
+
+        def analyse_nmap_xml_scan(self, nmap_xml_output=None, **kw):
+            calls["xml"] = nmap_xml_output
+            return {"scan": {"10.0.0.5": {"tcp": {}}}}
+
+    monkeypatch.setattr("pegase.modules.netassault.nmap.PortScanner", _FakePortScanner)
+
+    from pegase.modules.netassault import _run_nmap
+
+    result = _run_nmap("10.0.0.5", "1-1024", "-sT -sV -Pn -T3")
+    assert result == {"scan": {"10.0.0.5": {"tcp": {}}}}
+    assert calls["scan"] == ("10.0.0.5", "1-1024", "-sT -sV -Pn -T3")
+    assert calls["xml"] == b"<xml>fake</xml>"

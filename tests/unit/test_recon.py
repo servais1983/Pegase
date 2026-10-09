@@ -145,3 +145,134 @@ def test_stringify_handles_list_and_none():
     assert _stringify(["A", "B"]) == ["A", "B"]
     assert _stringify(None) is None
     assert _stringify(42) == "42"
+
+
+@pytest.mark.asyncio
+async def test_recon_ipv6_literal_target_skips_dns_lookup(monkeypatch):
+    def _boom(*a, **kw):
+        raise AssertionError("resolver should not be used for IPv6 literals")
+
+    monkeypatch.setattr("pegase.modules.recon.dns.asyncresolver.Resolver", _boom)
+    monkeypatch.setattr("pegase.modules.recon.whois", None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"[]")
+
+    transport = httpx.MockTransport(handler)
+    real_client_cls = httpx.AsyncClient
+
+    class _Patched(real_client_cls):  # type: ignore[misc]
+        def __init__(self, *a, **kw):
+            kw["transport"] = transport
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr("pegase.modules.recon.httpx.AsyncClient", _Patched)
+
+    guard = _guard("2001:db8::1")
+    result = await ReconSphere().run(targets=["2001:db8::1"], guard=guard)
+    assert result.raw["dns"]["2001:db8::1"]["ip_literal"] is True
+    assert result.raw["dns"]["2001:db8::1"]["records"] == {"AAAA": ["2001:db8::1"]}
+
+
+@pytest.mark.asyncio
+async def test_recon_whois_success_adds_finding(monkeypatch):
+    class _FakeWhoisResult(dict):
+        pass
+
+    class _FakeWhoisModule:
+        @staticmethod
+        def whois(host):
+            return _FakeWhoisResult(
+                registrar="Example Registrar",
+                creation_date="2001-01-01",
+                expiration_date="2030-01-01",
+                name_servers=["ns1.example.com", "ns2.example.com"],
+                org="Example Org",
+                country="US",
+            )
+
+    monkeypatch.setattr("pegase.modules.recon.whois", _FakeWhoisModule())
+    monkeypatch.setattr("pegase.modules.recon.dns.asyncresolver.Resolver", _FakeResolver)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"[]")
+
+    class _Patched(httpx.AsyncClient):  # type: ignore[misc]
+        def __init__(self, *a, **kw):
+            kw["transport"] = httpx.MockTransport(handler)
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr("pegase.modules.recon.httpx.AsyncClient", _Patched)
+
+    result = await ReconSphere().run(targets=["example.com"], guard=_guard())
+    titles = [f.title for f in result.findings]
+    assert "WHOIS metadata" in titles
+    whois_finding = next(f for f in result.findings if f.title == "WHOIS metadata")
+    assert whois_finding.evidence["registrar"] == "Example Registrar"
+    assert whois_finding.evidence["name_servers"] == ["ns1.example.com", "ns2.example.com"]
+
+
+@pytest.mark.asyncio
+async def test_recon_whois_exception_is_recorded_as_error(monkeypatch):
+    class _RaisingWhoisModule:
+        @staticmethod
+        def whois(host):
+            raise ConnectionError("whois server unreachable")
+
+    monkeypatch.setattr("pegase.modules.recon.whois", _RaisingWhoisModule())
+    monkeypatch.setattr("pegase.modules.recon.dns.asyncresolver.Resolver", _FakeResolver)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"[]")
+
+    class _Patched(httpx.AsyncClient):  # type: ignore[misc]
+        def __init__(self, *a, **kw):
+            kw["transport"] = httpx.MockTransport(handler)
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr("pegase.modules.recon.httpx.AsyncClient", _Patched)
+
+    result = await ReconSphere().run(targets=["example.com"], guard=_guard())
+    assert result.raw["whois"]["example.com"]["error"] == "whois server unreachable"
+
+
+@pytest.mark.asyncio
+async def test_crtsh_subdomains_http_error_returns_empty(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.AsyncClient(transport=transport)
+    from pegase.modules.recon import _crtsh_subdomains
+
+    result = await _crtsh_subdomains(client, "example.com")
+    await client.aclose()
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_crtsh_subdomains_non_200_returns_empty():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503)
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.AsyncClient(transport=transport)
+    from pegase.modules.recon import _crtsh_subdomains
+
+    result = await _crtsh_subdomains(client, "example.com")
+    await client.aclose()
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_crtsh_subdomains_malformed_json_returns_empty():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"not json")
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.AsyncClient(transport=transport)
+    from pegase.modules.recon import _crtsh_subdomains
+
+    result = await _crtsh_subdomains(client, "example.com")
+    await client.aclose()
+    assert result == []

@@ -112,3 +112,71 @@ async def test_socialmatrix_rejects_out_of_scope_recipient(tmp_path, monkeypatch
                 "recipients": [{"email": "victim@evil.org"}],
             },
         )
+
+
+@pytest.mark.asyncio
+async def test_socialmatrix_requires_non_empty_recipients(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "pegase.modules.socialmatrix.get_audit_log",
+        lambda: AuditLog(tmp_path / "audit.log"),
+    )
+    scope = Scope(
+        rules=[ScopeRule("example.com")],
+        allowed_actions={ActionType.PASSIVE},
+        authorization_token="t",
+        starts_at=datetime.now(UTC),
+    )
+    guard = ScopeGuard(scope)
+    with pytest.raises(ValueError, match="non-empty 'recipients'"):
+        await SocialMatrix().run(
+            targets=[], guard=guard,
+            parameters={"recipients": [], "consent_proof": "RoE-clause-3"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_socialmatrix_rejects_unknown_template(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "pegase.modules.socialmatrix.get_audit_log",
+        lambda: AuditLog(tmp_path / "audit.log"),
+    )
+    scope = Scope(
+        rules=[ScopeRule("example.com")],
+        allowed_actions={ActionType.PASSIVE},
+        authorization_token="t",
+        starts_at=datetime.now(UTC),
+    )
+    guard = ScopeGuard(scope)
+    with pytest.raises(ValueError, match="unknown template"):
+        await SocialMatrix().run(
+            targets=[], guard=guard,
+            parameters={
+                "recipients": [{"email": "a@example.com"}],
+                "consent_proof": "RoE-clause-3",
+                "template": "does-not-exist",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_socialmatrix_skips_recipient_without_email(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "pegase.modules.socialmatrix.get_audit_log",
+        lambda: AuditLog(tmp_path / "audit.log"),
+    )
+    monkeypatch.chdir(tmp_path)
+    scope = Scope(
+        rules=[ScopeRule("example.com")],
+        allowed_actions={ActionType.PASSIVE},
+        authorization_token="t",
+        starts_at=datetime.now(UTC),
+    )
+    guard = ScopeGuard(scope)
+    result = await SocialMatrix().run(
+        targets=[], guard=guard,
+        parameters={
+            "recipients": [{"name": "No Email Here"}, {"email": "a@example.com"}],
+            "consent_proof": "RoE-clause-3",
+        },
+    )
+    assert len(result.raw["recipients"]) == 1

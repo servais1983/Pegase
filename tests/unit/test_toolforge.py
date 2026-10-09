@@ -149,3 +149,43 @@ async def test_toolforge_enforces_scope_guard(monkeypatch):
             guard=_guard("example.com"),
             parameters={"tool": "dig"},
         )
+
+
+@pytest.mark.asyncio
+async def test_toolforge_timeout_kills_process_and_reports_exit_124(monkeypatch):
+    monkeypatch.setattr("pegase.modules.toolforge.shutil.which", lambda _b: "/usr/bin/dig")
+
+    class _HangingProc:
+        def __init__(self):
+            self.killed = False
+
+        async def communicate(self):
+            import asyncio
+
+            await asyncio.sleep(10)  # much longer than the test's timeout
+            return b"", b""
+
+        def kill(self):
+            self.killed = True
+
+        async def wait(self):
+            return 137
+
+    hanging = _HangingProc()
+
+    async def fake_create_subprocess_exec(*argv, **kw):
+        return hanging
+
+    monkeypatch.setattr(
+        "pegase.modules.toolforge.asyncio.create_subprocess_exec",
+        fake_create_subprocess_exec,
+    )
+
+    result = await ToolForge().run(
+        targets=["example.com"],
+        guard=_guard(),
+        parameters={"tool": "dig", "timeout": 0.05},
+    )
+    assert hanging.killed is True
+    assert result.raw["example.com"]["dig"]["exit_code"] == 124
+    assert "timed out" in result.findings[0].description
