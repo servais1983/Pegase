@@ -93,3 +93,14 @@ markers = [
     "integration: integration tests requiring services",
     "slow: slow tests",
 ]
+
+[tool.coverage.run]
+# SQLAlchemy's async engine bridges its sync core onto asyncio via greenlet
+# (``greenlet_spawn``/``await_only``). Without this, coverage.py silently
+# stops tracing any statement that runs after an ``await`` on an AsyncSession
+# call (flush/commit/execute/...) inside a route handler, because the
+# greenlet context switch doesn't go through normal frame call/return
+# semantics that the default tracer hooks into. Confirmed empirically: the
+# exact same request handler goes from ~25% to 100% measured coverage with
+# this one setting, against both SQLite+aiosqlite and real Postgres+asyncpg.
+concurrency = ["greenlet", "thread"]
