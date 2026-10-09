@@ -84,3 +84,20 @@ code { background: #0d1117; padding: 2px 6px; border-radius: 4px; font-size: 13p
 #auth-status { color: var(--muted); font-size: 13px; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+.muted { color: var(--muted); font-size: 13px; }
+.hidden { display: none; }
+
+#autopilot-panel h3 { margin: 0 0 4px; font-size: 14px; color: var(--fg); text-transform: none; letter-spacing: 0; }
+#autopilot-panel ul { margin: 4px 0 12px; padding-left: 20px; font-size: 13px; }
+#autopilot-panel li { margin-bottom: 2px; }
+.autopilot-round {
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+  margin-bottom: 16px;
+}
+#autopilot-panel-close {
+  background: #30363d; color: var(--fg); border: 0;
+  padding: 6px 14px; border-radius: 6px; cursor: pointer;
+}
+#autopilot-panel-close:hover { filter: brightness(1.2); }

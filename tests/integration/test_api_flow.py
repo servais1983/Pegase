@@ -2,25 +2,23 @@
 
 from __future__ import annotations
 
-import os
-
 import httpx
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from pegase.api.main import create_app
 from pegase.core.auth import hash_password
 from pegase.db.models import Base, User
-from pegase.db.session import get_sessionmaker
+from pegase.db.session import get_engine, get_sessionmaker, reset_engine
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture()
 async def admin_user():
-    engine = create_async_engine(
-        os.environ["PEGASE_DATABASE_URL"], future=True, echo=False
-    )
+    # Create the schema on the *same* engine the application uses so the
+    # fixture works identically against Postgres and SQLite.
+    await reset_engine()
+    engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     sm = get_sessionmaker()
@@ -34,8 +32,9 @@ async def admin_user():
         db.add(user)
         await db.commit()
         yield user
-        await db.delete(user)
-        await db.commit()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await reset_engine()
 
 
 @pytest.fixture()

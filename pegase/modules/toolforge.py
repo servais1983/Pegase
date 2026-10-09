@@ -40,6 +40,7 @@ class ToolForge(Module):
     name = "toolforge"
     description = "Run allowlisted third-party CLI tools with scope-checked targets."
     action_type = ActionType.ACTIVE
+    autopilot_ready = False  # requires an explicit, operator-named tool
 
     async def run(
         self,

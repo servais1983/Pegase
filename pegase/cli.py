@@ -13,9 +13,10 @@ from rich.table import Table
 
 from pegase.core.audit import get_audit_log
 from pegase.core.auth import hash_password
+from pegase.core.autopilot import AutoPilotOutcome
 from pegase.core.config import get_settings
 from pegase.core.logging import configure_logging
-from pegase.core.orchestrator import MissionContext, Orchestrator
+from pegase.core.orchestrator import MissionContext, MissionOutcome, Orchestrator
 from pegase.core.scope import ActionType, Scope, ScopeRule
 from pegase.modules import available_modules
 
@@ -216,6 +217,18 @@ def scenarios_cmd() -> None:
 @click.option("--allow-exploit", is_flag=True, default=False)
 @click.option("--output", type=click.Path(), default=None, help="Write JSON report to file")
 @click.option("--ai", "ai_analyze", is_flag=True, default=False, help="Run the grounded AI advisor on the findings")
+@click.option(
+    "--autopilot", "autopilot", is_flag=True, default=False,
+    help="Chain modules autonomously: after each round, pick the next modules from "
+    "the evidence gathered so far instead of a fixed --module list.",
+)
+@click.option("--max-rounds", default=6, show_default=True, help="AutoPilot: max chaining rounds.")
+@click.option("--max-modules", default=20, show_default=True, help="AutoPilot: max total module runs.")
+@click.option(
+    "--use-jury", "use_jury", is_flag=True, default=False,
+    help="AutoPilot: gate chaining through the AI jury - only a jury-confirmed "
+    "finding may trigger the next round (offline deterministic juror always on).",
+)
 def scan_cmd(
     targets: tuple[str, ...],
     modules: tuple[str, ...],
@@ -226,11 +239,16 @@ def scan_cmd(
     allow_exploit: bool,
     output: str | None,
     ai_analyze: bool,
+    autopilot: bool,
+    max_rounds: int,
+    max_modules: int,
+    use_jury: bool,
 ) -> None:
     """Run a one-off mission from the command line."""
     registry = available_modules()
 
     parameters: dict = {}
+    scenario_seed: tuple[str, ...] | None = None
     if scenario:
         from pegase.core.scenarios import load_scenario
 
@@ -240,6 +258,7 @@ def scan_cmd(
             click.echo(f"scenario invalid: {errors}", err=True)
             sys.exit(1)
         modules = tuple(scen.all_modules())
+        scenario_seed = tuple(scen.seed_modules())
         parameters = scen.merged_parameters()
         console.print(f"[cyan]scenario[/cyan] {scen.name}: modules={list(modules)}")
 
@@ -261,7 +280,6 @@ def scan_cmd(
         starts_at=datetime.now(UTC),
         authorization_token=authorization,
     )
-    instances = [registry[m]() for m in modules]
     ctx = MissionContext(
         mission_id="cli-" + datetime.now(UTC).strftime("%Y%m%d%H%M%S"),
         actor="cli",
@@ -269,8 +287,44 @@ def scan_cmd(
         targets=list(targets),
         parameters=parameters,
     )
-    orchestrator = Orchestrator(instances)
-    outcome = asyncio.run(orchestrator.run(ctx))
+
+    outcome: MissionOutcome | AutoPilotOutcome
+    if autopilot:
+        from pegase.core.autopilot import AutoPilot
+
+        jury = None
+        if use_jury:
+            from pegase.ai.jury import Jury
+            from pegase.ai.providers import get_provider
+
+            jury = Jury(providers=[get_provider(get_settings())])
+
+        pilot = AutoPilot(
+            seed_modules=scenario_seed or tuple(modules),
+            max_rounds=max_rounds,
+            max_modules=max_modules,
+            jury=jury,
+        )
+        outcome = asyncio.run(pilot.run(ctx))
+        console.print(
+            f"[cyan]autopilot[/cyan] ran {len(outcome.rounds)} round(s) "
+            f"(stopped: {outcome.stopped_reason})"
+        )
+        for rnd in outcome.rounds:
+            picked = ", ".join(
+                f"{m} [{rnd.reasons.get(m, '')}]" for m in rnd.modules_run
+            )
+            console.print(f"  round {rnd.index}: {picked} -> {rnd.new_findings} finding(s)")
+            if rnd.jury_verdicts:
+                for v in rnd.jury_verdicts:
+                    mark = "✅" if v["confirmed"] else "❌"
+                    console.print(
+                        f"    jury {mark} {v['finding']} (confidence={v['confidence']})"
+                    )
+    else:
+        instances = [registry[m]() for m in modules]
+        orchestrator = Orchestrator(instances)
+        outcome = asyncio.run(orchestrator.run(ctx))
 
     table = Table(title=f"Findings ({len(outcome.findings)})")
     for col in ("Severity", "Module", "Target", "Title"):

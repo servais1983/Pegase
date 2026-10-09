@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pegase.api.deps import current_user
 from pegase.api.schemas import (
+    AutoPilotRunRequest,
     MissionCreate,
     MissionOut,
     MissionRunRequest,
@@ -107,7 +108,7 @@ async def update_mission(
         action="mission.updated",
         actor=user.username,
         mission=mission.id,
-        meta=list(data.keys()),
+        meta={"updated_fields": list(data.keys())},
     )
     return mission
 
@@ -190,5 +191,84 @@ async def run_mission(
         actor=user.username,
         mission=mission.id,
         meta={"task_id": task.id, "modules": payload.modules},
+    )
+    return MissionRunResponse(mission_id=mission.id, task_id=task.id)
+
+
+@router.post("/{mission_id}/autopilot", response_model=MissionRunResponse)
+async def run_mission_autopilot(
+    mission_id: str,
+    payload: AutoPilotRunRequest,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_session),
+) -> MissionRunResponse:
+    """Queue a bounded, audited AutoPilot run for this mission.
+
+    AutoPilot runs *rounds*: it starts from ``seed_modules`` (or a scenario's
+    first stage) and, after each round, asks the deterministic
+    recon-aware planner what to run next based on the evidence actually
+    gathered - never an LLM improvising against a live target. See
+    ``pegase.core.autopilot`` for the full design rationale.
+    """
+    mission = await db.get(Mission, mission_id)
+    if not mission:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "mission not found")
+    if mission.status not in (
+        MissionStatus.AUTHORIZED,
+        MissionStatus.COMPLETED,
+        MissionStatus.FAILED,
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"mission must be in 'authorized' state, currently '{mission.status.value}'",
+        )
+    if not mission.targets:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "mission has no targets")
+    if not mission.authorization_token:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "mission requires an authorization token"
+        )
+
+    seed_modules = payload.seed_modules
+    if payload.scenario:
+        from pegase.core.scenarios import load_scenario
+
+        try:
+            scen = load_scenario(payload.scenario)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        errors = scen.validate()
+        if errors:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "; ".join(errors))
+        seed_modules = scen.seed_modules()
+        merged = dict(mission.parameters or {})
+        for mod, mp in scen.merged_parameters().items():
+            merged.setdefault(mod, {}).update(mp)
+        mission.parameters = merged
+
+    unknown = set(seed_modules) - set(available_modules().keys())
+    if unknown:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"unknown seed modules: {sorted(unknown)}"
+        )
+
+    mission.status = MissionStatus.RUNNING
+    await db.flush()
+
+    from pegase.tasks.scans import run_autopilot_task  # local import to avoid cycle
+
+    task = run_autopilot_task.delay(
+        mission_id,
+        seed_modules,
+        user.username,
+        max_rounds=payload.max_rounds,
+        max_modules=payload.max_modules,
+        use_jury=payload.use_jury,
+    )
+    get_audit_log().append(
+        action="mission.autopilot_queued",
+        actor=user.username,
+        mission=mission.id,
+        meta={"task_id": task.id, "seed_modules": seed_modules},
     )
     return MissionRunResponse(mission_id=mission.id, task_id=task.id)

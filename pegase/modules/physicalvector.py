@@ -38,6 +38,7 @@ class PhysicalVector(Module):
     name = "physicalvector"
     description = "Generate a structured physical-security assessment checklist."
     action_type = ActionType.PASSIVE
+    autopilot_ready = False  # requires a human physical site visit
 
     async def run(
         self,

@@ -21,7 +21,7 @@ from pegase.modules.base import Finding, Module, ModuleResult
 log = get_logger(__name__)
 
 
-def _finding_to_dict(f: Finding) -> dict[str, Any]:
+def finding_to_dict(f: Finding) -> dict[str, Any]:
     return {
         "module": f.module,
         "target": f.target,
@@ -106,7 +106,7 @@ class Orchestrator:
                     **ctx.parameters,
                     module.name: {
                         **(ctx.parameters.get(module.name, {})),
-                        "findings": [_finding_to_dict(f) for f in findings],
+                        "findings": [finding_to_dict(f) for f in findings],
                     },
                 },
             )

@@ -86,6 +86,7 @@ class MissionOut(BaseModel):
     ends_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    autopilot_state: dict[str, Any] | None = None
 
 
 class FindingOut(BaseModel):
@@ -115,3 +116,22 @@ class MissionRunResponse(BaseModel):
     mission_id: str
     task_id: str
     status: str = "queued"
+
+
+class AutoPilotRunRequest(BaseModel):
+    seed_modules: list[str] = Field(
+        default_factory=lambda: ["recon"],
+        description="Opening modules; AutoPilot picks what to run next on its own.",
+    )
+    scenario: str | None = Field(
+        default=None,
+        description="ThreatSim scenario name; when set, seeds from its first "
+        "stage instead of `seed_modules`.",
+    )
+    max_rounds: int = Field(default=6, ge=1, le=20)
+    max_modules: int = Field(default=20, ge=1, le=100)
+    use_jury: bool = Field(
+        default=False,
+        description="Gate chaining through the AI jury - only a jury-confirmed "
+        "finding may trigger the next round.",
+    )

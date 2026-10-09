@@ -67,6 +67,7 @@ class SocialMatrix(Module):
         "Produces artifacts only; sending is out-of-band and operator-controlled."
     )
     action_type = ActionType.PASSIVE
+    autopilot_ready = False  # requires an operator-provided recipient list
 
     async def run(
         self,
