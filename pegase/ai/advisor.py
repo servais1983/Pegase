@@ -19,6 +19,7 @@ LLM hallucination risk.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -98,7 +99,7 @@ class AIAdvisor:
     def __init__(self, provider: LLMProvider | None = None) -> None:
         self._provider = provider or get_provider()
 
-    async def analyze(self, findings: list[dict[str, Any]]) -> AIAnalysis:
+    async def analyze(self, findings: Sequence[Any]) -> AIAnalysis:
         findings = [_normalize(f) for f in findings]
         counts = _severity_counts(findings)
         score = _risk_score(findings)

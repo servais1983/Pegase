@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -28,6 +28,17 @@ log = get_logger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
+
+
+def _handle_rate_limit(request: Request, exc: Exception) -> Response:
+    """Adapt slowapi's handler to Starlette's ``(Request, Exception)`` signature.
+
+    The limiter only registers this for ``RateLimitExceeded``. The isinstance
+    check keeps the function assignable to Starlette's exception-handler type.
+    """
+    if not isinstance(exc, RateLimitExceeded):
+        raise exc
+    return _rate_limit_exceeded_handler(request, exc)
 
 
 @asynccontextmanager
@@ -60,7 +71,7 @@ def create_app() -> FastAPI:
         headers_enabled=True,
     )
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, _handle_rate_limit)
     app.add_middleware(SlowAPIMiddleware)
 
     app.add_middleware(

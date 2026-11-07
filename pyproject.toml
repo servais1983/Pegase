@@ -63,6 +63,10 @@ dev = [
     "types-pyyaml==6.0.12.20240917",
     "aiosqlite==0.20.0",
     "pre-commit==4.0.1",
+    # CloudStrike tests import boto3 so they can patch Session. The cloud
+    # extra stays the runtime opt-in; the dev install (CI and `make dev`)
+    # must include the same pin or those tests fail before the patch.
+    "boto3==1.35.90",
 ]
 
 [project.scripts]

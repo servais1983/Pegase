@@ -50,7 +50,7 @@ jobs:
         run: ruff check pegase tests
 
       - name: Type check
-        run: mypy pegase || true   # non-blocking until baseline is clean
+        run: mypy pegase
 
       - name: Migrate
         env:
