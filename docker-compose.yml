@@ -82,6 +82,13 @@ services:
     volumes:
       - audit_data:/var/lib/pegase
     command: ["celery", "-A", "pegase.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=4"]
+    # The image HEALTHCHECK curls the API. This process is the worker.
+    healthcheck:
+      test: ["CMD", "celery", "-A", "pegase.tasks.celery_app", "inspect", "ping", "--timeout", "10"]
+      interval: 15s
+      timeout: 15s
+      retries: 8
+      start_period: 20s
     restart: unless-stopped
 
   nginx:

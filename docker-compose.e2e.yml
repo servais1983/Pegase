@@ -1,0 +1,17 @@
+# Overlay for a production-like stack test.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
+#
+# Adds a lab HTTP service named `lab` on the compose network only. The worker
+# reaches it as http://lab. Nothing in this file publishes that service, and
+# the mission under test must scope itself to the hostname `lab`.
+services:
+  lab:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/lab/default.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

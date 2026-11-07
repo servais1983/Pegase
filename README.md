@@ -347,7 +347,16 @@ pytest                      # 71 unit tests (scope, audit, auth+refresh+revocati
                             #   AI layer: grounding, advisor, selection, jury,
                             #   aibreacher, API routes + worker pipeline on SQLite)
 pytest -m integration       # needs Postgres + Redis on localhost
+bash scripts/e2e_lab.sh       # full compose stack (production env) + lab target
 ```
+
+`scripts/e2e_lab.sh` starts the documented compose stack with
+`docker-compose.e2e.yml`, which adds an HTTP service named `lab` on the
+compose network only. The live test logs in through Nginx, lets the Celery
+worker run `webbreacher` and `netassault` against that host, reads the report
+back from Postgres, and checks that logout writes the JWT `jti` to Redis.
+It does not call crt.sh, WHOIS registries, AWS, or an LLM provider. The test
+is skipped by a normal `pytest` run unless `PEGASE_E2E_BASE_URL` is set.
 
 The full Docker stack (postgres + redis + api + worker + nginx) has been
 validated end-to-end: login → create mission → Celery worker runs real
