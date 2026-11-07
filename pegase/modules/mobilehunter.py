@@ -96,7 +96,7 @@ class MobileHunter(Module):
 
     def _decode_manifest(self, zf: zipfile.ZipFile) -> str:
         try:
-            from androguard.core.bytecodes.apk import AXMLPrinter  # type: ignore
+            from androguard.core.bytecodes.apk import AXMLPrinter
 
             raw = zf.read("AndroidManifest.xml")
             return AXMLPrinter(raw).get_xml().decode("utf-8", "replace")

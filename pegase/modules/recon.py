@@ -20,7 +20,7 @@ import httpx
 try:
     import whois  # python-whois
 except ImportError:  # pragma: no cover
-    whois = None  # type: ignore[assignment]
+    whois = None
 
 from pegase.core.logging import get_logger
 from pegase.core.scope import ActionType, ScopeGuard

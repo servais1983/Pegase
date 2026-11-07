@@ -123,7 +123,7 @@ async def _nvd_lookup(
     client: httpx.AsyncClient, product: str, version: str, api_key: str
 ) -> list[dict[str, Any]]:
     headers = {"apiKey": api_key}
-    params = {
+    params: dict[str, str | int] = {
         "keywordSearch": f"{product} {version}",
         "resultsPerPage": 20,
     }
