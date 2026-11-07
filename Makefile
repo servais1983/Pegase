@@ -1,5 +1,5 @@
 .PHONY: help install dev test lint typecheck format db-upgrade db-revision \
-        run-api run-worker docker-build docker-up docker-down clean
+        run-api run-worker docker-build docker-up docker-down e2e clean
 
 PYTHON ?= python3
 
@@ -18,6 +18,7 @@ help:
 	@echo "  docker-build   build the Docker image"
 	@echo "  docker-up      docker compose up"
 	@echo "  docker-down    docker compose down"
+	@echo "  e2e            compose stack plus lab target, then the live HTTP test"
 
 install:
 	$(PYTHON) -m pip install -e .
@@ -57,6 +58,9 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+e2e:
+	bash scripts/e2e_lab.sh
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build dist *.egg-info

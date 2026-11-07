@@ -35,8 +35,13 @@ def main() -> int:
     engine = create_engine(settings.database_sync_url, future=True)
     Session = sessionmaker(bind=engine, future=True, expire_on_commit=False)
     with Session() as db:
-        if db.scalar(select(User).where(User.username == username)):
-            print(f"user '{username}' already exists.")
+        existing = db.scalar(select(User).where(User.username == username))
+        if existing:
+            existing.email = email
+            existing.password_hash = hash_password(password)
+            existing.is_active = True
+            db.commit()
+            print(f"updated admin user '{username}'.")
             return 0
         db.add(
             User(

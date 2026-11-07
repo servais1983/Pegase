@@ -13,6 +13,7 @@ htmlcov/
 *.log
 .env
 .env.local
+.e2e-lab.env
 config/config.yaml
 audit.log
 artifacts/
